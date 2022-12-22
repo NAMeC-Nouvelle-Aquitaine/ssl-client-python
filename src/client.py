@@ -129,14 +129,18 @@ class ClientRobot(ClientTracked):
         return arrived
 
     def goto_compute_order(self, target, skip_old=True, pid_mode=False):
+        p = 0.003
+        i = 0
+        d = 0
+
         if pid_mode:
-            p = 0.003
-            i = 0.1
-            d = 1.0
-        else:
-            p = 0.003
-            i = 0
-            d = 0
+            # zeigler nichols pid tuning method
+            k_max = 0.018
+            f_0 = 1.8
+
+            p = 0.6 * k_max
+            i = 2.0 * f_0
+            d = 0.125/f_0
 
         if callable(target):
             target = target()
@@ -147,7 +151,7 @@ class ClientRobot(ClientTracked):
         Ti = utils.frame_inv(utils.robot_frame(self))
         target_in_robot = Ti @ np.array([x, y, 1])
 
-        e = np.array([target_in_robot[0], target_in_robot[1], utils.angle_wrap(orientation - self.orientation)])
+        e = np.array([target_in_robot[0], target_in_robot[1], 0 * utils.angle_wrap(orientation - self.orientation)])
 
         self.integral = self.integral * e
         derivative = e - self.old_e
