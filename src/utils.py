@@ -54,7 +54,7 @@ def robot_max_number() -> int:
 
     :return int: Maximum number of robots per team on the field
     """
-    return 16
+    return 6
 
 
 def robot_numbers() -> list:

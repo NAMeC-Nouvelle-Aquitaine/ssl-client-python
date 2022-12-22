@@ -157,14 +157,14 @@ class ClientRobot(ClientTracked):
         Ti = utils.frame_inv(utils.robot_frame(self))
         target_in_robot = Ti @ np.array([x, y, 1])
 
-        e = np.array([target_in_robot[0], target_in_robot[1], 0 * utils.angle_wrap(orientation - self.orientation)])
+        e = np.array([target_in_robot[0], target_in_robot[1], utils.angle_wrap(orientation - self.orientation)])
 
         self.integral = self.integral * e
         derivative = e - self.old_e
         self.old_e = e
 
         arrived = np.linalg.norm(e) < 0.05
-        order = p * e + d * derivative + i * self.integral
+        order = np.array([p, p, 1.5]) * e + d * derivative + i * self.integral
 
         return arrived, order
 
