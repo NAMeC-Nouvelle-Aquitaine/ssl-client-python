@@ -3,6 +3,7 @@ import numpy as np
 import zmq
 import threading
 import time
+
 import constants
 import utils
 
@@ -84,6 +85,10 @@ class ClientRobot(ClientTracked):
         self.y_max = constants.field_width / 2 + constants.border_size / 2.0
         self.y_min = -self.y_max
 
+        # PID controller
+        self.old_e = np.array([0, 0, 0])
+        self.integral = np.array([0, 0, 0])
+
     def ball(self):
         return self.client.ball
 
@@ -111,11 +116,27 @@ class ClientRobot(ClientTracked):
     def leds(self, r, g, b):
         return self.client.command(self.color, self.number, "leds", {"r": r, "g": g, "b": b})
 
-    def goto_compute_order(self, target, skip_old=True):
-        GOTO_LINEAR_CORRECTION = 0.003
+    def goto(self, target, wait=True, skip_old=True, pid_mode=False):
+        if wait:
+            while not self.goto(target, wait=False):
+                time.sleep(0.05)
+            self.control(0, 0, 0)
+            return True
 
-        if not self.has_position(skip_old):
-            return False, (0.0, 0.0, 0.0)
+        arrived, order = self.goto_compute_order(target, skip_old, pid_mode=pid_mode)
+        self.control(*order)
+
+        return arrived
+
+    def goto_compute_order(self, target, skip_old=True, pid_mode=False):
+        if pid_mode:
+            p = 0.003
+            i = 0.1
+            d = 1.0
+        else:
+            p = 0.003
+            i = 0
+            d = 0
 
         if callable(target):
             target = target()
@@ -126,26 +147,16 @@ class ClientRobot(ClientTracked):
         Ti = utils.frame_inv(utils.robot_frame(self))
         target_in_robot = Ti @ np.array([x, y, 1])
 
-        error_x = target_in_robot[0]
-        error_y = target_in_robot[1]
-        error_orientation = utils.angle_wrap(orientation - self.orientation)
+        e = np.array([target_in_robot[0], target_in_robot[1], utils.angle_wrap(orientation - self.orientation)])
 
-        arrived = np.linalg.norm([error_x, error_y, error_orientation]) < 0.05
-        order = GOTO_LINEAR_CORRECTION * error_x, GOTO_LINEAR_CORRECTION * error_y, 1.5 * error_orientation
+        self.integral = self.integral * e
+        derivative = e - self.old_e
+        self.old_e = e
+
+        arrived = np.linalg.norm(e) < 0.05
+        order = p * e + d * derivative + i * self.integral
 
         return arrived, order
-
-    def goto(self, target, wait=True, skip_old=True):
-        if wait:
-            while not self.goto(target, wait=False):
-                time.sleep(0.05)
-            self.control(0, 0, 0)
-            return True
-
-        arrived, order = self.goto_compute_order(target, skip_old)
-        self.control(*order)
-
-        return arrived
 
     def __str__(self):
         return f"Robot(team: {self.team}, id: {self.number}, position: {self.position}, orientation: {self.orientation})"
