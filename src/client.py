@@ -1,4 +1,6 @@
 import signal
+from typing import *
+
 import numpy as np
 import zmq
 import threading
@@ -65,29 +67,30 @@ class ClientError(Exception):
 
 class ClientTracked:
     def __init__(self):
-        self.position = None
-        self.pose = None
-        self.orientation = None
-        self.last_update = None
+        self.position: Optional[np.ndarray] = None
+        self.pose: Optional[np.ndarray] = None
+        self.orientation: Optional[float] = None
+        self.last_update: Optional[int] = None
 
 
 class ClientRobot(ClientTracked):
     def __init__(self, color, number, client):
         super().__init__()
-        self.moved = False
-        self.color = color
-        self.team = color
-        self.number = number
-        self.client = client
+        self.moved: bool = False
+        self.color: str = color
+        self.team: str = color
+        self.number: int = number
+        self.client: Client = client
+        self.infrared: bool = False
 
-        self.x_max = constants.field_length / 2 + constants.border_size / 2.0
-        self.x_min = -self.x_max
-        self.y_max = constants.field_width / 2 + constants.border_size / 2.0
-        self.y_min = -self.y_max
+        self.x_max: float = constants.field_length / 2 + constants.border_size / 2.0
+        self.x_min: float = -self.x_max
+        self.y_max: float = constants.field_width / 2 + constants.border_size / 2.0
+        self.y_min: float = -self.y_max
 
         # PID controller
-        self.old_e = np.array([0, 0, 0])
-        self.integral = np.array([0, 0, 0])
+        self.old_e: np.ndarray = np.array([0, 0, 0])
+        self.integral: np.ndarray = np.array([0, 0, 0])
 
     def ball(self):
         return self.client.ball
@@ -174,13 +177,13 @@ class Client:
         self.running = True
         self.key = key
         self.lock = threading.Lock()
-        self.robots = {}
+        self.robots: Dict[str, Dict[int, ClientRobot]] = {}
 
         # Creating self.green1, self.green2 etc.
         for color, number in utils.all_robots():
             robot_id = utils.robot_list2str(color, number)
             robot = ClientRobot(color, number, self)
-            self.__dict__[robot_id] = robot
+            self.__dict__[robot_id]: ClientRobot = robot
 
             if color not in self.robots:
                 self.robots[color] = {}
@@ -233,6 +236,8 @@ class Client:
     def update_position(self, tracked, infos):
         tracked.position = np.array(infos["position"])
         tracked.orientation = infos["orientation"]
+        if "feedback" in infos and infos["feedback"] is not None:
+            tracked.infrared = infos["feedback"]["infrared"]
         tracked.pose = np.array(list(tracked.position) + [tracked.orientation])
         tracked.last_update = time.time()
 
