@@ -105,8 +105,11 @@ class ClientRobot(ClientTracked):
 
         return time.time() - self.last_update
 
-    def kick(self, power=1):
-        return self.client.command(self.color, self.number, "kick", {"power": power})
+    def kick(self, power=1., chip_kick=False):
+        return self.client.command(self.color, self.number, "kick", {"power": power, "chip_kick": chip_kick})
+
+    def dribble(self, speed):
+        return self.client.command(self.color, self.number, "dribble", {"speed": speed})
 
     def control(self, dx, dy, dturn):
         self.moved = True
@@ -140,7 +143,7 @@ class ClientRobot(ClientTracked):
 
             p = 0.6 * k_max
             i = 2.0 * f_0
-            d = 0.125/f_0
+            d = 0.125 / f_0
 
         if callable(target):
             target = target()
