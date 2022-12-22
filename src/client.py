@@ -101,15 +101,15 @@ class ClientRobot(ClientTracked):
         return time.time() - self.last_update
 
     def kick(self, power=1):
-        return self.client.command(self.color, self.number, "kick", [power])
+        return self.client.command(self.color, self.number, "kick", {"power": power})
 
     def control(self, dx, dy, dturn):
         self.moved = True
 
-        return self.client.command(self.color, self.number, "control", [dx, dy, dturn])
+        return self.client.command(self.color, self.number, "control", {"dx": dx, "dy": dy, "dturn": dturn})
 
     def leds(self, r, g, b):
-        return self.client.command(self.color, self.number, "leds", [r, g, b])
+        return self.client.command(self.color, self.number, "leds", {"r": r, "g": g, "b": b})
 
     def goto_compute_order(self, target, skip_old=True):
         if not self.has_position(skip_old):
@@ -268,7 +268,16 @@ class Client:
             signal.signal(signal.SIGINT, signal.SIG_IGN)
 
         self.lock.acquire()
-        self.req.send_json([self.key, color, number, [name, *parameters]])
+        payload = {
+            "key": self.key,
+            "color": color,
+            "number": number,
+            "command": name,
+            "params": parameters
+        }
+
+        # self.req.send_json([self.key, color, number, [name, *parameters]])
+        self.req.send_json(payload)
         success, message = self.req.recv_json()
         self.lock.release()
 

@@ -1,12 +1,13 @@
-import time
-
 from client import Client
 
 with Client(host='127.0.0.1', key='') as client:
-    # client.robots['green'][1].kick()
+    # while True:
+    client.robots["blue"][0].control(0., 1., 1.)
 
     while True:
-        print(f"ball: {client.ball}")
+        pass
 
-        for robot in client.robots["blue"].values():
-            print(robot)
+    # while True:
+    #     print(f"ball: {client.ball}")
+    #     client.robots["blue"][0].kick()
+    #     # for robot in client.robots["blue"].values():
