@@ -20,8 +20,8 @@ def traj_function(a: Point, b: Point, two_parameterized=False) -> Callable[[floa
     # Use point a to solve the ordinate of the origin of the function
     # Because y = m*x + p ; y - m*x = p
     p: float = a.y - m * a.x
-    if two_parameterized:  # TODO: check if this is really required, could be removed if fsolve is manipulated correctly
-        return lambda x, y: m*x + p
+    if two_parameterized:
+        return lambda x, y: m*x + p - y  # TODO: this MIGHT cause some errors one day. It's just a feeling though..
     return lambda x: m*x + p
 
 
