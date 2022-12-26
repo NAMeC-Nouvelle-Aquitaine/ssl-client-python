@@ -1,9 +1,5 @@
-import time
-
-import numpy as np
-
 from client import Client
-import basic_avoid
+from src.basic_avoid import basic_avoid
 
 
 def main():

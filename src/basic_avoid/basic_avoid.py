@@ -1,7 +1,7 @@
-from client import Client
-from client import ClientRobot
-from basic_avoid_consts import *
-from basic_avoid_computing import *
+from src.client import Client
+from src.client import ClientRobot
+from src.basic_avoid.basic_avoid_consts import *
+from src.basic_avoid.basic_avoid_utils import *
 from typing import Callable
 import numpy as np
 
@@ -40,7 +40,7 @@ def visualize_circle(center: Point, radius: float):
         enemy.goto((x, y, float(np.deg2rad(deg))))
 
     # Back to spawn
-    enemy.goto((EN_SRC.x, EN_SRC.Y, 0.))
+    enemy.goto((EN_SRC.x, EN_SRC.y, 0.))
 
 
 def ally_goto_and_avoid(robot:ClientRobot, dst: Point, avoid: ClientRobot):
