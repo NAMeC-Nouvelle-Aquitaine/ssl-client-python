@@ -3,7 +3,14 @@ import time
 import numpy as np
 
 from client import Client
+import basic_avoid
 
+
+def main():
+    client = Client(host='127.0.0.1')
+    basic_avoid.run(client)
+
+"""
 with Client(host='127.0.0.1', key='') as client:
     robot = client.robots["blue"][0]
     print(client.ball)
@@ -18,3 +25,7 @@ with Client(host='127.0.0.1', key='') as client:
         else:
             robot.dribble(0.0)
             robot.control(.0, .0, .0)
+"""
+
+if __name__ == '__main__':
+    main()
