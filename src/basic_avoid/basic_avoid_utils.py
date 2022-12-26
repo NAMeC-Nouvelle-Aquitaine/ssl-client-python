@@ -20,7 +20,7 @@ def traj_function(a: Point, b: Point, two_parameterized=False) -> Callable[[floa
     # Use point a to solve the ordinate of the origin of the function
     # Because y = m*x + p ; y - m*x = p
     p: float = a.y - m * a.x
-    if two_parameterized:
+    if two_parameterized:  # TODO: check if this is really required, could be removed if fsolve is manipulated correctly
         return lambda x, y: m*x + p
     return lambda x: m*x + p
 
@@ -36,7 +36,7 @@ def angle_towards(p: Point) -> float:
     return np.arctan2(p.y, p.x)
 
 
-def compute_intersections(circle: Circle, line: (Point, Point)):
+def compute_intersections(circle: Circle, line: tuple[Point, Point]) -> tuple[np.ndarray, bool]:
     """
     Using a circle and the source and two distinct points of a line, computes
     the number of crossing points between the circle and the line.
@@ -54,7 +54,15 @@ def compute_intersections(circle: Circle, line: (Point, Point)):
     circle_fc = circle_gen_eq(circle.center, circle.r)
 
     # Use scipy.optimize.fsolve to get the intersection point(s)
+    # This solves the equation circle_fc = line_fc
+    # effectively computing the intersection points
+    # The function might not find a proper root. We ask for the full output of the function
+    # and only grab the returned roots and a special return value.
+    #
     # Most readable one-liner I've ever written x)
-    roots = scipy_fsolve(lambda xy: [line_fc(xy[0], xy[1]), circle_fc(xy[0], xy[1])], np.zeros(2))[0]
+    roots, _, retval, _ = scipy_fsolve(lambda xy: [line_fc(xy[0], xy[1]), circle_fc(xy[0], xy[1])], np.zeros(2), full_output=True)
 
-    return roots
+    # The special return value is set to 1 if correct roots have been found
+    solution_found = retval == 1
+
+    return roots, solution_found
