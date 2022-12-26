@@ -13,6 +13,9 @@ crab_minion: ClientRobot
 
 
 def declare_robots():
+    """
+    Initializes global variables
+    """
     # blue0 is the ally
     global ally
     ally = client.robots['blue'][0]
@@ -27,23 +30,37 @@ def declare_robots():
 
 
 def place_robots():
+    """
+    Setting up the placement of the robots to showcase the strategy
+    """
     ally.goto((A.x, A.y, 0.))
     enemy.goto((EN_SRC.x, EN_SRC.y, 0.))
     crab_minion.goto((B.x, B.y, 0.))
 
 
 def visualize_circle(center: Point, radius: float):
+    """
+    Moves the enemy robot around the edges of its danger circle
+    in grSim. This is pure visualization, but also very slow.
+    """
     # Place on 4 edges of circle
     for deg in range(0, 360, 90):
         x = center.x + (radius * np.sin(np.deg2rad(deg)))
         y = center.y + (radius * np.cos(np.deg2rad(deg)))
-        enemy.goto((x, y, float(np.deg2rad(deg))))
+        enemy.goto((x, y, float(angle_towards(Point(x,y), center))))
 
     # Back to spawn
     enemy.goto((EN_SRC.x, EN_SRC.y, 0.))
 
 
 def ally_goto_and_avoid(robot:ClientRobot, dst: Point, avoid: ClientRobot):
+    """
+    Send a goto command to the 'ally' robot by avoiding the enemy robot, which will compute
+    extra waypoints to go to if necessary
+
+    Works for one robot, but should be not too painful to scale up to n robots
+    """
+
     # Save the source position of the robot
     src = Point(robot.position[0], robot.position[1])
 

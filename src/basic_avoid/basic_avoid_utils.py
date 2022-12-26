@@ -4,7 +4,7 @@ from src.basic_avoid.basic_avoid_consts import Point, Circle
 from typing import Callable
 
 
-def traj_function(a: Point, b: Point, two_parameterized=False) -> Callable[[float, [float]], float]:
+def traj_function(a: Point, b: Point, general_form=False) -> Callable[[float, [float]], float]:
     """
     Computes the lambda function describing a straight line
     trajectory from point a to point b
@@ -20,20 +20,27 @@ def traj_function(a: Point, b: Point, two_parameterized=False) -> Callable[[floa
     # Use point a to solve the ordinate of the origin of the function
     # Because y = m*x + p ; y - m*x = p
     p: float = a.y - m * a.x
-    if two_parameterized:
-        return lambda x, y: m*x + p - y  # TODO: this MIGHT cause some errors one day. It's just a feeling though..
+    if general_form:
+        return lambda x, y: m*x + p - y  # TODO: MIGHT cause some calculus errors one day. It's just a feeling though..
     return lambda x: m*x + p
 
 
 def circle_gen_eq(center: Point, r: float) -> Callable[[float, float], float]:
+    """
+    Returns the general form of the equation of a circle
+    Tip : general form is an equation equal to  0
+    """
     return lambda x, y: np.power(x - center.x, 2) + np.power(y - center.y, 2) - np.power(r, 2)
 
 
-def angle_towards(p: Point) -> float:
+def angle_towards(src:Point, dst: Point) -> float:
     """
-    Returns the angle in radian towards a specific point
+    Returns the angle in radian from one point towards another one point
     """
-    return np.arctan2(p.y, p.x)
+    return np.arctan2(
+        dst.y - src.y,
+        dst.x - src.x
+    )
 
 
 def compute_intersections(circle: Circle, line: tuple[Point, Point]) -> tuple[np.ndarray, bool]:
@@ -41,14 +48,14 @@ def compute_intersections(circle: Circle, line: tuple[Point, Point]) -> tuple[np
     Using a circle and the source and two distinct points of a line, computes
     the number of crossing points between the circle and the line.
     To do this, it computes and uses the general equation of the given circle : (x - h)² + (y - k)² = r²
-    and the cartesian form of the line : y = m*x + p
+    and the general form of the line : m*x + p - y = 0
 
     Warning : Refactor with care and determination, if you ever dare to
     """
 
     # Compute straight line trajectory
     # Important : set two_parameterized to True to make it compliant with scipy.optimize.fsolve with circle general form
-    line_fc = traj_function(line[0], line[1], two_parameterized=True)
+    line_fc = traj_function(line[0], line[1], general_form=True)
 
     # Compute circle trajectory
     circle_fc = circle_gen_eq(circle.center, circle.r)
