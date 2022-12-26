@@ -1,9 +1,6 @@
----
-
 # Strategy #1 - Basic obstacle avoidance with linear trajectories
 Writer(s) : Thomas Wanchaï MENIER
 
----
 ## Characteristics
 
 | #          | #        |
@@ -31,13 +28,11 @@ We only take in account the enemies which are as close or closer to the destinat
 Consider a "danger circle" around every enemy.  
 Danger circle radius is to be determined in a more precise way, but should look like :  
 
-<div style="display: flex; justify-content: center;">
-  <p>r<sub>danger</sub> = 2 * r<sub>robot</sub> + k</p>
-</div>
+$$r_{danger} = 2 * r_{robot} + k$$
 
 | Parameter         | Description                       | Value                |
 |-------------------|-----------------------------------|----------------------|
-| r<sub>robot</sub> | Physical radius of a robot's body | <center>TBD</center> |
+| $r_{robot}$       | Physical radius of a robot's body | <center>TBD</center> |
 | k                 | #                                 | Constant             |
 
 The constant k should be adjusted to take in account the fact that a given robot might also run towards our new trajectory and disrupt it.
@@ -71,6 +66,35 @@ that the danger circle is big enough to make the assumption that crossing it isn
 
 Once the robot attains the intermediate point I<sub>1</sub>, the enemy robot in the drawing will not be taken into account
 because the blue robot will already be closer to point B.
+
+## Determining intersection between a line and a circle
+### Line equation used
+Fairly simple but seems to work, we only require 2 points that are on the line, and we represent
+it under this representation : $y = m*x + p$
+
+
+m can be easily computed with the following formula
+
+$$m = \frac{y_{b}-y_{a}}{x_{b}-x_{a}}$$
+
+and p using one of the two points that belongs on the line :
+
+$$y_a - m*x_a = p$$
+
+### Circle equation used
+The current algorithm uses the standard equation form of a circle :
+
+$$(x - k)^2 + (y - h)^2 - r^2$$
+
+where (k, h) are the coordinates of the circle's center, and r is its radius.
+
+### Solving the equation equality
+We use the `scipy.optimize.fsolve` function to solve the following equation :
+$$m*x + p - y = (x - k)^2 + (y - h)^2 - r^2$$
+
+The usage of this function isn't quite trivial, I recommend checking out [SciPy's docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fsolve.html)
+
+Becaue of the `full_output` flag set to `True`, we can retrieve the integer telling us whether roots have been found or not. This is how we manage to find the roots. 
 
 ## Other points to consider
 Enemy robot radius same as ours ?  
