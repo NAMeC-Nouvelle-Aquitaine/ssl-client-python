@@ -16,6 +16,7 @@ def declare_robots():
     """
     Initializes global variables
     """
+    print("Setting up variables...")
     # blue0 is the ally
     global ally
     ally = client.robots['blue'][0]
@@ -33,6 +34,7 @@ def place_robots():
     """
     Setting up the placement of the robots to showcase the strategy
     """
+    print("Placing robots...")
     ally.goto((A.x, A.y, 0.))
     enemy.goto((EN_SRC.x, EN_SRC.y, 0.))
     crab_minion.goto((B.x, B.y, 0.))
@@ -43,6 +45,7 @@ def visualize_circle(center: Point, radius: float):
     Moves the enemy robot around the edges of its danger circle
     in grSim. This is pure visualization, but also very slow.
     """
+    print("Visualizing danger circle..")
     # Place on 4 edges of circle
     for deg in range(0, 360, 90):
         x = center.x + (radius * np.sin(np.deg2rad(deg)))
@@ -60,7 +63,7 @@ def ally_goto_and_avoid(robot:ClientRobot, dst: Point, avoid: ClientRobot):
 
     Works for one robot, but should be not too painful to scale up to n robots
     """
-
+    print("Starting 'avoid-like' goto...")
     # Save the source position of the robot
     src = Point(robot.position[0], robot.position[1])
 
@@ -70,8 +73,14 @@ def ally_goto_and_avoid(robot:ClientRobot, dst: Point, avoid: ClientRobot):
         danger_circle_radius
     )
 
-    intersection_points = compute_intersections(circle=dgr_circle, line=(src, dst))
-    # TODO: continue with logic
+    _, is_circle_crossed = compute_intersections(circle=dgr_circle, line=(src, dst))
+    if not is_circle_crossed:
+        # No avoiding necessary, just go to the position
+        ally.goto(dst)
+    else:
+        waypoint = compute_waypoint(circle=dgr_circle, line=(src, dst))
+        ally.goto((waypoint.x, waypoint.y, 0.))
+        ally.goto((dst.x, dst.y, 0.))
 
 
 def run(given_client: Client):
