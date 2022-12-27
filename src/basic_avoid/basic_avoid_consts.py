@@ -1,8 +1,4 @@
-from collections import namedtuple
-
-# Custom types
-Point = namedtuple('Point', ['x', 'y'])
-Circle = namedtuple('Circle', ['center', 'r'])
+from src.basic_avoid.basic_avoid_types import *
 
 # warning : grSim gives distances in millimeters at the moment
 A = Point(0., 0.)

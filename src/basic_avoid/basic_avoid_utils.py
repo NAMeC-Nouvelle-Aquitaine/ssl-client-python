@@ -33,7 +33,7 @@ def circle_gen_eq(center: Point, r: float) -> Callable[[float, float], float]:
     return lambda x, y: np.power(x - center.x, 2) + np.power(y - center.y, 2) - np.power(r, 2)
 
 
-def angle_towards(src:Point, dst: Point) -> float:
+def angle_towards(src: Point, dst: Point) -> float:
     """
     Returns the angle in radian from one point towards another one point
     """
