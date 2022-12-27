@@ -2,7 +2,6 @@ from src.client import Client
 from src.client import ClientRobot
 from src.basic_avoid.basic_avoid_consts import *
 from src.basic_avoid.basic_avoid_utils import *
-from typing import Callable
 import numpy as np
 
 global client
@@ -80,7 +79,10 @@ def ally_goto_and_avoid(robot:ClientRobot, dst: Point, avoid: ClientRobot):
     else:
         waypoint = compute_waypoint(circle=dgr_circle, line=(src, dst))
         ally.goto((waypoint.x, waypoint.y, 0.))
+        print("     - Waypoint attained")
         ally.goto((dst.x, dst.y, 0.))
+        print("     - Destination attained")
+
 
 
 def run(given_client: Client):

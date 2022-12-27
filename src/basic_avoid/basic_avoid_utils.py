@@ -9,11 +9,12 @@ def traj_function(a: Point, b: Point, general_form=False) -> Callable[[float, [f
     Computes the lambda function describing a straight line
     trajectory from point a to point b
 
-    Special parameter : two_parameterized
-        Set to True to return a two-variables lambda function.
-        This makes the function usable with scipy.optimize.fsolve alongside a circle equation
-        that takes two unknown variables.
-        Yeah, that's a weird way to do it, don't kill me :(
+    Returns :
+        A lambda function representing the slope-intercept
+        equation form, as y = m * x + p
+
+    Optional parameter : general_form
+        Set to True to return the general form of the equation lambda function.
     """
     m: float = (b.y - a.y) / (b.x - a.x)
 
@@ -21,7 +22,7 @@ def traj_function(a: Point, b: Point, general_form=False) -> Callable[[float, [f
     # Because y = m*x + p ; y - m*x = p
     p: float = a.y - m * a.x
     if general_form:
-        return lambda x, y: m*x + p - y  # TODO: MIGHT cause some calculus errors one day. It's just a feeling though..
+        return lambda x, y: m*x + p - y
     return lambda x: m*x + p
 
 
@@ -47,14 +48,17 @@ def compute_intersections(circle: Circle, line: tuple[Point, Point]) -> tuple[np
     """
     Using a circle and the source and two distinct points of a line, computes
     the number of crossing points between the circle and the line.
-    To do this, it computes and uses the general equation of the given circle : (x - h)² + (y - k)² = r²
-    and the general form of the line : m*x + p - y = 0
 
-    Warning : Refactor with care and determination, if you ever dare to
+    To do this, it computes and uses the general equation of the given circle : (x - h)² + (y - k)² - r² = 0
+    and the general form of the affine function : m*x + p - y = 0
+
+    The order of given points in the 'line' argument is important :
+        First is source point
+        Second is destination point
     """
 
     # Compute straight line trajectory
-    # Important : set two_parameterized to True to make it compliant with scipy.optimize.fsolve with circle general form
+    # Important : set general_form to True to make it compliant with scipy.optimize.fsolve
     line_fc = traj_function(line[0], line[1], general_form=True)
 
     # Compute circle trajectory
@@ -65,11 +69,11 @@ def compute_intersections(circle: Circle, line: tuple[Point, Point]) -> tuple[np
     # effectively computing the intersection points
     # The function might not find a proper root. We ask for the full output of the function
     # and only grab the returned roots and a special return value.
-    #
-    # Most readable one-liner I've ever written x)
-    roots, _, retval, _ = scipy_fsolve(lambda xy: [line_fc(xy[0], xy[1]), circle_fc(xy[0], xy[1])], np.zeros(2), full_output=True)
 
-    # The special return value is set to 1 if correct roots have been found
+    equation = lambda xy: [line_fc(xy[0], xy[1]), circle_fc(xy[0], xy[1])]
+    roots, _, retval, _ = scipy_fsolve(equation, np.zeros(2), full_output=True)
+
+    # The variable retval should be set to 1 if correct roots have been found
     solution_found = retval == 1
 
     return roots, solution_found
@@ -80,7 +84,7 @@ def compute_waypoint(circle: Circle, line: tuple[Point, Point], forward_theta_de
     Given a specific danger circle and two source and destination points,
     determines a waypoint to go to avoid said circle.
 
-    The order of given points in the line params is important :
+    The order of given points in the 'line' argument is important :
         First is source point
         Second is destination point
     TODO: change line param to vector
@@ -91,11 +95,12 @@ def compute_waypoint(circle: Circle, line: tuple[Point, Point], forward_theta_de
         Such is done by drawing a triangle, where the hypotenuse is the source point towards
         the circle center. We know that one angle will be of 90°, so we can calculate the last
         angle towards the line. This will be the angle of the vector
+
     Using the formula of this newfound vector, we can find the intersection of the vector with the line
     and compute the waypoint towards this intersection
 
     Note : every angle calculated here is in the range [0, 360]
-           np.rad2deg() can output negative values, we cast the result modulo 360
+           np.rad2deg() can output negative values, we cast the result mod 360
     TODO: thoroughly test this function
     """
 
@@ -123,7 +128,6 @@ def compute_waypoint(circle: Circle, line: tuple[Point, Point], forward_theta_de
     # Using the circle's center point, and the found angle towards the line, we can compute
     # another point that is aligned to the vector
     r: float = 42.  # Arbitrary length, the value itself isn't important, but must be > 1
-    # TODO: random np.pi added here, check why it is required
     aligned_pt: Point = Point(
         circle.center.x + (r * np.cos(waypoint_vec_theta)),  # | Polar to cartesian coordinates conversion
         circle.center.y + (r * np.sin(waypoint_vec_theta))   # | x = r * cos(theta)  and  y = r * sin(theta)
