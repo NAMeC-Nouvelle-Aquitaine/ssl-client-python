@@ -7,7 +7,7 @@ Writer(s) : Thomas Wanchaï MENIER
 |------------|----------|
 | Category   | Movement |
 | Math level | Basic    |
-| Version    | 0.1      |
+| Version    | 0.2      |
 
 ## Description
 
@@ -89,8 +89,9 @@ $$(x - k)^2 + (y - h)^2 - r^2$$
 where (k, h) are the coordinates of the circle's center, and r is its radius.
 
 ### Solving the equation equality
-We use the `scipy.optimize.fsolve` function to solve the following equation :
-$$m*x + p - y = (x - k)^2 + (y - h)^2 - r^2$$
+We use the `scipy.optimize.fsolve` function to solve the following system of equations :  
+$$m*x + p - y = 0$$  
+$$(x - k)^2 + (y - h)^2 - r^2 = 0$$
 
 The usage of this function isn't quite trivial, I recommend checking out [SciPy's docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fsolve.html)
 
@@ -99,4 +100,4 @@ Becaue of the `full_output` flag set to `True`, we can retrieve the integer tell
 ## Other points to consider
 Enemy robot radius same as ours ?  
 k as a variable and not a constant in the danger circle formula ?  
-Make better drawing showing danger circle radius formula on it
+Make better drawings, which don't have flashing-white backgrounds

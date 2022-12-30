@@ -29,33 +29,34 @@ def declare_robots():
     crab_minion = client.robots['blue'][2]
 
 
-def place_robots():
+def place_robots(ally_pos: Point, dst_pos: Point, enemy_pos: Point):
     """
     Setting up the placement of the robots to showcase the strategy
     """
     print("Placing robots...")
-    ally.goto((A.x, A.y, 0.))
-    enemy.goto((EN_SRC.x, EN_SRC.y, 0.))
-    crab_minion.goto((B.x, B.y, 0.))
+    ally.goto((ally_pos.x, ally_pos.y, 0.))
+    enemy.goto((enemy_pos.x, enemy_pos.y, 0.))
+    crab_minion.goto((dst_pos.x, dst_pos.y, 0.))
 
 
-def visualize_circle(center: Point, radius: float):
+def visualize_circle(robot: ClientRobot, radius: float):
     """
     Moves the enemy robot around the edges of its danger circle
     in grSim. This is pure visualization, but also very slow.
     """
     print("Visualizing danger circle..")
+    x_rob, y_rob = robot.position[0], robot.position[1]
     # Place on 4 edges of circle
     for deg in range(0, 360, 90):
-        x = center.x + (radius * np.sin(np.deg2rad(deg)))
-        y = center.y + (radius * np.cos(np.deg2rad(deg)))
-        enemy.goto((x, y, float(angle_towards(Point(x,y), center))))
+        x = x_rob + (radius * np.sin(np.deg2rad(deg)))
+        y = y_rob + (radius * np.cos(np.deg2rad(deg)))
+        enemy.goto((x, y, float(angle_towards(Point(x, y), Point(x_rob, y_rob)))))
 
     # Back to spawn
-    enemy.goto((EN_SRC.x, EN_SRC.y, 0.))
+    robot.goto((x_rob, y_rob, 0.))
 
 
-def ally_goto_and_avoid(robot:ClientRobot, dst: Point, avoid: ClientRobot):
+def ally_goto_and_avoid(robot: ClientRobot, dst: Point, avoid: ClientRobot):
     """
     Send a goto command to the 'ally' robot by avoiding the enemy robot, which will compute
     extra waypoints to go to if necessary
@@ -84,15 +85,15 @@ def ally_goto_and_avoid(robot:ClientRobot, dst: Point, avoid: ClientRobot):
         print("     - Destination attained")
 
 
-
 def run(given_client: Client):
     global client
     client = given_client
 
     declare_robots()
-    place_robots()
-    visualize_circle(center=EN_SRC, radius=danger_circle_radius)
-    ally_goto_and_avoid(robot=ally, dst=B, avoid=enemy)
+    for src, dst, avoid_pos in xyt_datasets:
+        place_robots(ally_pos=src, dst_pos=dst, enemy_pos=avoid_pos)
+        visualize_circle(robot=enemy, radius=danger_circle_radius)
+        ally_goto_and_avoid(robot=ally, dst=dst, avoid=enemy)
 
     print("finished !")
     exit(0)
