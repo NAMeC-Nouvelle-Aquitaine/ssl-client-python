@@ -1,3 +1,8 @@
+# Emergency stop
+If the robot goes rogue, launch this !
+```bash
+python3 ./emergency_stop.py
+```
 # About the program
 ## Initial setup
 Put the robot on the circle that is around the center of the field.  
