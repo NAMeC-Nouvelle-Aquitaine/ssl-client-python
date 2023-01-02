@@ -7,6 +7,12 @@ from client import Client, ClientRobot
 team = 'blue'
 rob_id = 0
 
+# In millimeters, or meters ?
+# Will be automatically adapted using scale variable
+# Change only if the robot doesn't go correctly straight
+# but you shouldn't have to
+pos_tol = 2.5
+
 
 def angle_towards(src: tuple[float, float], dst: tuple[float, float]) -> float:
     """
@@ -24,6 +30,7 @@ def stop_robot(rob: ClientRobot):
 
 
 def get_field_scale(rob: ClientRobot) -> int:
+    _ = input("Have you put the desired robot on the circle around the center of the field ?")
     return 1000 if (abs(rob.position[0]) > 6.5 or abs(rob.position[1] > 4.5)) else 1
 
 
@@ -40,15 +47,15 @@ def slow_goto(rob: ClientRobot, pos: tuple[float, float], tol: float):
     print(f"Attained {pos}")
 
 
-def you_make_my_head_go_round_right_round(rob: ClientRobot):
-    rob.goto((0, 0, 0))
+def you_make_my_head_go_round_right_round(rob: ClientRobot, tol: float):
+    slow_goto(rob, (0, 0), tol)
     for _ in range(10):
-        rob.control(0, 0, 10)
+        rob.control(0, 0, 2.5)
     stop_robot(rob)
     for _ in range(10):
-        rob.control(0, 0, -10)
+        rob.control(0, 0, -2.5)
     stop_robot(rob)
-    rob.goto((0, 0, 0))
+    slow_goto(rob, (0, 0), tol)
 
 
 def run_around_field_celebration(rob: ClientRobot, scale: int, tolerance: float):
@@ -75,9 +82,16 @@ def run_around_field_celebration(rob: ClientRobot, scale: int, tolerance: float)
     slow_goto(rob, (0., 0.), tolerance)
 
 
+# Main program !
 with Client(host='127.0.0.1', key='') as client:
     robot = client.robots[team][rob_id]
+
+    # Scale determination
     s = get_field_scale(robot)
     print(f"Scale = {s}")
-    # you_make_my_head_go_right_round(robot)
-    run_around_field_celebration(robot, s, tolerance=2.5*s)
+
+    # Rotating test, undefined speed while rotating
+    you_make_my_head_go_round_right_round(robot, tol=pos_tol*s/10)
+
+    # Movement test, go around field SLOWLY
+    run_around_field_celebration(robot, s, tolerance=pos_tol*s/10)
