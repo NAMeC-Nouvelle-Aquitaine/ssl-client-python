@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.optimize import fsolve as scipy_fsolve
-from src.basic_avoid.basic_avoid_consts import Point, Circle
+from basic_avoid.basic_avoid_consts import Point, Circle
 from typing import Callable
 
 

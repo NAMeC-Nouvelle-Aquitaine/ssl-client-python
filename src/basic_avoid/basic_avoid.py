@@ -1,7 +1,7 @@
-from src.client import Client
-from src.client import ClientRobot
-from src.basic_avoid.basic_avoid_consts import *
-from src.basic_avoid.basic_avoid_utils import *
+from client import Client
+from client import ClientRobot
+from basic_avoid.basic_avoid_consts import *
+from basic_avoid.basic_avoid_utils import *
 import numpy as np
 
 global client

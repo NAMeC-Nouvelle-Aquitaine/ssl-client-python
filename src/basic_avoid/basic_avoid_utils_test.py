@@ -1,5 +1,5 @@
-from src.basic_avoid.basic_avoid_consts import Point, Circle
-from src.basic_avoid.basic_avoid_utils import circle_gen_eq, compute_intersections
+from basic_avoid.basic_avoid_consts import Point, Circle
+from basic_avoid.basic_avoid_utils import circle_gen_eq, compute_intersections
 import unittest
 
 

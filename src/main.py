@@ -1,5 +1,5 @@
 from client import Client
-from src.basic_avoid import basic_avoid
+from basic_avoid import basic_avoid
 
 
 def main():
