@@ -7,8 +7,6 @@ from client import Client, ClientRobot
 team = 'blue'
 rob_id = 0
 
-# In millimeters, or meters ?
-# Will be automatically adapted using scale variable
 # Change only if the robot doesn't go correctly straight
 # but you shouldn't have to
 pos_tol = 2.5
@@ -29,11 +27,6 @@ def stop_robot(rob: ClientRobot):
         rob.control(0., 0., 0.)
 
 
-def get_field_scale(rob: ClientRobot) -> int:
-    _ = input("Have you put the desired robot on the circle around the center of the field ?")
-    return 1000 if (abs(rob.position[0]) > 6.5 or abs(rob.position[1] > 4.5)) else 1
-
-
 def slow_goto(rob: ClientRobot, pos: tuple[float, float], tol: float):
     # orienting towards destination point
     theta = angle_towards(rob.position, pos)
@@ -48,7 +41,7 @@ def slow_goto(rob: ClientRobot, pos: tuple[float, float], tol: float):
 
 
 def you_make_my_head_go_round_right_round(rob: ClientRobot, tol: float):
-    slow_goto(rob, (0, 0), tol)
+    rob.goto((0, 0, 0), wait=True)
     for _ in range(10):
         rob.control(0, 0, 2.5)
     stop_robot(rob)
@@ -58,7 +51,7 @@ def you_make_my_head_go_round_right_round(rob: ClientRobot, tol: float):
     slow_goto(rob, (0, 0), tol)
 
 
-def run_around_field_celebration(rob: ClientRobot, scale: int, tolerance: float):
+def run_around_field_celebration(rob: ClientRobot, tolerance: float):
     """
     Makes a given robot go around the field
 
@@ -67,11 +60,11 @@ def run_around_field_celebration(rob: ClientRobot, scale: int, tolerance: float)
            If this happens IRL please change the 'tolerance' parameter to something higher
     """
 
-    top_mid = (0., 4.5*scale)
-    top_left = (-6*scale, 4.5*scale)
-    bottom_left = (-6*scale, -4.5*scale)
-    bottom_right = (6*scale, -4.5*scale)
-    top_right = (6*scale, 4.5*scale)
+    top_mid = (0., 4.5)
+    top_left = (-6, 4.5)
+    bottom_left = (-6, -4.5)
+    bottom_right = (6, -4.5)
+    top_right = (6, 4.5)
 
     # navigating
     slow_goto(rob, top_mid, tolerance)
@@ -86,12 +79,8 @@ def run_around_field_celebration(rob: ClientRobot, scale: int, tolerance: float)
 with Client(host='127.0.0.1', key='') as client:
     robot = client.robots[team][rob_id]
 
-    # Scale determination
-    s = get_field_scale(robot)
-    print(f"Scale = {s}")
-
     # Rotating test, undefined speed while rotating
-    you_make_my_head_go_round_right_round(robot, tol=pos_tol*s/10)
+    you_make_my_head_go_round_right_round(robot, tol=pos_tol/10)
 
     # Movement test, go around field SLOWLY
-    run_around_field_celebration(robot, s, tolerance=pos_tol*s/10)
+    run_around_field_celebration(robot, tolerance=pos_tol/10)
