@@ -4,6 +4,10 @@ import numpy as np
 
 from client import Client
 
+def lerp(p1, p2, t):
+    p1_to_p2 = p2 - p1
+    return p1 + p1_to_p2 * t
+
 with Client(host='127.0.0.1', key='') as client:
     robot = client.robots["blue"][0]
     print(client.ball)
@@ -14,15 +18,14 @@ with Client(host='127.0.0.1', key='') as client:
     p1 = np.array([2., 2.])
     p2 = np.array([0., 0.])
 
-    p0_to_p1 = p1 - p0
-    p1_to_p2 = p2 - p1
+    ANIMATION_TIME = 3.0 # in seconds
 
-    for lerp in np.linspace(0, 1, 100):
-        P1 = p0 + p0_to_p1 * lerp
-        P2 = p1 + p1_to_p2 * lerp
+    t0 = time.time()
+    get_t = lambda: (time.time() - t0) / ANIMATION_TIME
 
-        P1_to_P2 = P2 - P1
+    while time.time() < t0 + ANIMATION_TIME:
+        P1 = lerp(p0, p1, get_t())
+        P2 = lerp(p1, p2, get_t())
 
-        p = P1 + P1_to_P2 * lerp
-        print(p)
-        robot.goto((*p, 0))
+        robot.goto((*lerp(P1, P2, get_t()), 0.0), wait=False)
+    robot.control(0, 0, 0)
