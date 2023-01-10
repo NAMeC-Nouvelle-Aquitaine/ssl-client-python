@@ -12,7 +12,7 @@ with Client(host='127.0.0.1', key='') as client:
     # robot.goto(lambda: (-2., 0., 0.), wait=True)
 
     startpos = (robot.position[0], robot.position[1])
-    endpos = (2.0, 0.0)
+    endpos = (3.0, 0.0)
     obstacles = []
     for r in client.robots["blue"].values():
         if r != robot:
