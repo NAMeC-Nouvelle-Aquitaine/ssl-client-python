@@ -76,7 +76,7 @@ def ally_goto_and_avoid(robot: ClientRobot, dst: Point, avoid: ClientRobot):
     _, is_circle_crossed = compute_intersections(circle=dgr_circle, line=(src, dst))
     if not is_circle_crossed:
         # No avoiding necessary, just go to the position
-        ally.goto(dst)
+        ally.goto((*dst, 0))
     else:
         waypoint = compute_waypoint(circle=dgr_circle, line=(src, dst))
         ally.goto((waypoint.x, waypoint.y, 0.))
@@ -85,15 +85,21 @@ def ally_goto_and_avoid(robot: ClientRobot, dst: Point, avoid: ClientRobot):
         print("     - Destination attained")
 
 
-def run(given_client: Client):
+def run(given_client: Client, scenario: str):
     global client
     client = given_client
 
     declare_robots()
-    for src, dst, avoid_pos in xyt_datasets:
-        place_robots(ally_pos=src, dst_pos=dst, enemy_pos=avoid_pos)
-        visualize_circle(robot=enemy, radius=danger_circle_radius)
-        ally_goto_and_avoid(robot=ally, dst=dst, avoid=enemy)
+    if scenario == 'TEST_EXPERIMENTS':
+        for src, dst, avoid_pos in xyt_datasets:
+            place_robots(ally_pos=src, dst_pos=dst, enemy_pos=avoid_pos)
+            visualize_circle(robot=enemy, radius=danger_circle_radius)
+            ally_goto_and_avoid(robot=ally, dst=dst, avoid=enemy)
+    elif scenario == 'INTERPRET_FROM_REAL':
+        ally_goto_and_avoid(robot=ally, dst=Point(*crab_minion.position), avoid=enemy)
+    else:
+        print("Scenario specified invalid.")
+        exit(0)
 
     print("finished !")
     exit(0)

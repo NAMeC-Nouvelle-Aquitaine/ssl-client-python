@@ -16,7 +16,11 @@ def traj_function(a: Point, b: Point, general_form=False) -> Callable[[float, [f
     Optional parameter : general_form
         Set to True to return the general form of the equation lambda function.
     """
-    m: float = (b.y - a.y) / (b.x - a.x)
+    m: float = -1
+    if np.isclose([b.y - a.y], [0.]):
+        m = 1
+    else:
+        m = (b.y - a.y) / (b.x - a.x)
 
     # Use point a to solve the ordinate of the origin of the function
     # Because y = m*x + p ; y - m*x = p
