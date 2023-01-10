@@ -56,7 +56,7 @@ def visualize_circle(robot: ClientRobot, radius: float):
     robot.goto((x_rob, y_rob, 0.))
 
 
-def ally_goto_and_avoid(robot: ClientRobot, dst: Point, avoid: ClientRobot):
+def ally_goto_and_avoid(robot: ClientRobot, dst: Point, avoid: ClientRobot, dynamic: bool):
     """
     Send a goto command to the 'ally' robot by avoiding the enemy robot, which will compute
     extra waypoints to go to if necessary
@@ -79,11 +79,17 @@ def ally_goto_and_avoid(robot: ClientRobot, dst: Point, avoid: ClientRobot):
         ally.goto((*dst, 0))
     else:
         waypoint = compute_waypoint(circle=dgr_circle, line=(src, dst))
-        ally.goto((waypoint.x, waypoint.y, 0.))
-        print("     - Waypoint attained")
-        ally.goto((dst.x, dst.y, 0.))
-        print("     - Destination attained")
-
+        if not dynamic:
+            ally.goto((waypoint.x, waypoint.y, 0.), wait=True)
+            print("     - Waypoint attained")
+            ally.goto((dst.x, dst.y, 0.), wait=True)
+            print("     - Destination attained")
+        else:
+            while not np.isclose(
+                np.array(ally.x, ally.y),
+                np.array(waypoint.x, waypoint.y)
+            ):
+                
 
 def run(given_client: Client, scenario: str):
     global client
