@@ -259,6 +259,8 @@ class Client:
                     for team in json["robots"]:
                         for number, robot in enumerate(json["robots"][team]):
                             self.update_position(self.robots[team][number], robot)
+                if "field" in json:
+                    self.referee = json["field"]
 
                 # if "referee" in json:
                 #     self.referee = json["referee"]
