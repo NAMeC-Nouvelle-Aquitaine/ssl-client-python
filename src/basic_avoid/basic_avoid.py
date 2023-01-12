@@ -56,7 +56,7 @@ def visualize_circle(robot: ClientRobot, radius: float):
     robot.goto((x_rob, y_rob, 0.))
 
 
-def ally_goto_and_avoid(robot: ClientRobot, dst: Point, avoid: ClientRobot, dynamic: bool):
+def ally_goto_and_avoid(robot: ClientRobot, dst: Point, avoid: ClientRobot, dynamic: bool, atol: float):
     """
     Send a goto command to the 'ally' robot by avoiding the enemy robot, which will compute
     extra waypoints to go to if necessary
@@ -75,7 +75,7 @@ def ally_goto_and_avoid(robot: ClientRobot, dst: Point, avoid: ClientRobot, dyna
 
     _, is_circle_crossed = compute_intersections(circle=dgr_circle, line=(src, dst))
     if not is_circle_crossed:
-        # No avoiding necessary, just go to the position
+        print("No avoiding necessary, just go to the position")
         ally.goto((*dst, 0))
     else:
         waypoint = compute_waypoint(circle=dgr_circle, line=(src, dst))
@@ -85,11 +85,24 @@ def ally_goto_and_avoid(robot: ClientRobot, dst: Point, avoid: ClientRobot, dyna
             ally.goto((dst.x, dst.y, 0.), wait=True)
             print("     - Destination attained")
         else:
+            # Go to waypoint
             while not np.isclose(
-                np.array(ally.x, ally.y),
-                np.array(waypoint.x, waypoint.y)
+                np.array(*ally.position),
+                np.array(*waypoint),
+                atol=atol
             ):
-                
+                ally.goto((waypoint.x, waypoint.y, 0.), wait=False)
+            print("     - Waypoint attained")
+
+            # Go to destination
+            while not np.isclose(
+                np.array(*ally.position),
+                np.array(*dst),
+                atol=atol
+            ):
+                ally.goto((dst.x, dst.y, 0.), wait=True)
+            print("     - Destination attained attained")
+
 
 def run(given_client: Client, scenario: str):
     global client
@@ -102,7 +115,7 @@ def run(given_client: Client, scenario: str):
             visualize_circle(robot=enemy, radius=danger_circle_radius)
             ally_goto_and_avoid(robot=ally, dst=dst, avoid=enemy)
     elif scenario == 'INTERPRET_FROM_REAL':
-        ally_goto_and_avoid(robot=ally, dst=Point(*crab_minion.position), avoid=enemy)
+        ally_goto_and_avoid(robot=ally, dst=Point(*crab_minion.position), avoid=enemy, dynamic=True, atol=0.1)
     else:
         print("Scenario specified invalid.")
         exit(0)
