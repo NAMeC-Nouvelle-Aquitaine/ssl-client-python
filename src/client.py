@@ -175,7 +175,6 @@ class ClientRobot(ClientTracked):
 class Client:
     def __init__(self, host="127.0.0.1", key="", wait_ready=True):
         self.running = True
-        self.key = key
         self.lock = threading.Lock()
         self.robots: Dict[str, Dict[int, ClientRobot]] = {}
 
@@ -296,7 +295,6 @@ class Client:
 
         self.lock.acquire()
         payload = {
-            "key": self.key,
             "color": color,
             "number": number,
             "command": name,
