@@ -3,6 +3,8 @@ from builtins import classmethod
 from client import ClientRobot, Client
 import numpy as np
 
+from field_observer import FieldObserver
+
 
 class Striker:
     # Represents this robot instance
@@ -12,16 +14,53 @@ class Striker:
         self.__robot = robot
 
     @classmethod
-    def compute_preshoot_pos(self, target: np.array, ball: np.array):
-        # Vector from target (where ball should go) towards ball
+    def compute_preshoot_pos(cls, target: np.array, ball: np.array):
+        """
+        Compute the position in (x, y) to where the robot should position itself
+        to be just in front of the ball, aiming towards a certain position.
+        """
+        # Vector from target (where the ball should go) towards ball
         target_to_ball: np.array = ball - target
 
         # Normalize the vector
-        target_to_ball = target_to_ball / np.linalg.norm(target_to_ball)  # TODO : can divide with 0  if target == ball
+        norm: float = np.linalg.norm(target_to_ball)
+        norm = 1 if norm == 0 else norm
+        target_to_ball = target_to_ball / norm
+
         # Change the vector's origin to start from the ball
         position_pre_shoot: np.array = ball + target_to_ball
         position_pre_shoot_angle = np.arctan2(ball[1] - position_pre_shoot[1], ball[0] - position_pre_shoot[0])
         return position_pre_shoot[0], position_pre_shoot[1], position_pre_shoot_angle
+
+    @classmethod
+    def determine_shoot_target_to_goal(cls, goal_posts: np.ndarray[np.ndarray], enemy_robs: list[ClientRobot]):
+        """
+        Computes a point towards which the ball should go
+
+        Parameters :
+            goal_posts | Coordinates of left and right enemy goal posts
+            enemy_robs | List of ClientRobot objects representing the enemy positions
+
+        Returns :
+            A 2-dimensional np array, the coordinates of the target to aim towards
+        """
+        enemy_gk: ClientRobot = FieldObserver.guess_goal_keeper(enemy_robs, goal_posts)
+        wanted_post: np.array = FieldObserver.highest_gap_from_posts(enemy_gk, goal_posts)
+
+        # Apply a small offset to the wanted post
+        # # TODO: another offset to put the target inside the goal posts
+        gk_posts_mid: np.array = (goal_posts[0] + goal_posts[1]) / 2
+        vec_post_to_mid: np.array = gk_posts_mid - wanted_post
+
+        norm = np.linalg.norm(vec_post_to_mid)
+        norm = 1 if norm == 0 else norm
+        vec_post_to_mid = vec_post_to_mid / norm
+
+        target = wanted_post + vec_post_to_mid
+
+        return target
+
+
     def run(self, target: np.array, client: Client):
         ball: np.array = client.ball
         
@@ -33,7 +72,7 @@ class Striker:
         while not np.isclose(self.__robot.position, preshoot_pos[:2]).all():
             self.__robot.goto(preshoot_pos, wait=False)
 
-            # If ball moved, do it again
+            # If ball moved, recompute pre shoot position
             if not np.isclose(ball, last_ball_pos).all():
                 preshoot_pos = Striker.compute_preshoot_pos(target, ball)
 
