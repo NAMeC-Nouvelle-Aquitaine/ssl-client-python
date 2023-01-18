@@ -45,7 +45,7 @@ class Striker:
             A 2-dimensional np array, the coordinates of the target to aim towards
         """
         enemy_gk: ClientRobot = FieldObserver.guess_goal_keeper(enemy_robs, goal_posts)
-        wanted_post: np.array = FieldObserver.highest_gap_from_posts(enemy_gk, goal_posts)
+        wanted_post: np.array = FieldObserver.get_furthest_post_of_gk(enemy_gk, goal_posts)
 
         # Apply a small offset to the wanted post
         # # TODO: another offset to put the target inside the goal posts
@@ -59,7 +59,6 @@ class Striker:
         target = wanted_post + vec_post_to_mid
 
         return target
-
 
     def run(self, target: np.array, client: Client):
         ball: np.array = client.ball
