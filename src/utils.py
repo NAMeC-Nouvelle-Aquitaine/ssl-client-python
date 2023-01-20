@@ -54,7 +54,7 @@ def robot_max_number() -> int:
 
     :return int: Maximum number of robots per team on the field
     """
-    return 6
+    return 16
 
 
 def robot_numbers() -> list:
@@ -72,7 +72,7 @@ def robot_teams() -> list:
 
     :return list: possible robot team (colors)
     """
-    return ["yellow", "blue"]
+    return ["allies", "enemies"]
 
 
 def all_robots() -> list:

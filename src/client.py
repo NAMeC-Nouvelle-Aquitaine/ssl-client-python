@@ -1,4 +1,6 @@
 import signal
+import socket
+from json import loads
 from typing import *
 
 import numpy as np
@@ -8,6 +10,10 @@ import time
 
 import constants
 import utils
+
+NO_KICK = 0
+STRAIGHT_KICK = 1
+CHIP_KICK = 2
 
 configurations = {
     "dots": [
@@ -111,13 +117,21 @@ class ClientRobot(ClientTracked):
     def kick(self, power=1., chip_kick=False):
         return self.client.command(self.color, self.number, "kick", {"power": power, "chip_kick": chip_kick})
 
-    def dribble(self, speed):
+    def dribble(self, speed: int):
         return self.client.command(self.color, self.number, "dribble", {"speed": speed})
 
     def control(self, dx, dy, dturn):
         self.moved = True
 
         return self.client.command(self.color, self.number, "control", {"dx": dx, "dy": dy, "dturn": dturn})
+
+    def command(self, control: tuple[float, float, float], kick: int, dribble: float, power: float = 1.0):
+        if kick >= 3:
+            print("wrong kick_type, available kick types: NO_KICK, STRAIGHT_KICK, CHIP_KICK")
+
+        self.moved = True
+        dx, dy, dturn = control
+        return self.client.command(self.color, self.number, "command", {"control": {"dx": dx, "dy": dy, "dturn": dturn}, "kick": kick, "power": power, "dribble": dribble})
 
     def leds(self, r, g, b):
         return self.client.command(self.color, self.number, "leds", {"r": r, "g": g, "b": b})
@@ -135,7 +149,7 @@ class ClientRobot(ClientTracked):
         return arrived
 
     def goto_compute_order(self, target, skip_old=True, pid_mode=False):
-        p = 3
+        p = 0.3
         i = 0
         d = 0
 
@@ -173,9 +187,12 @@ class ClientRobot(ClientTracked):
 
 
 class Client:
-    def __init__(self, host="127.0.0.1", key="", wait_ready=True):
+    def __init__(self, host="127.0.0.1", is_blue=True, wait_ready=True):
+        self.host = host
+        self.port = 11301 if is_blue else 11303
+        self.crab_port = 11300 if is_blue else 11302
+
         self.running = True
-        self.key = key
         self.lock = threading.Lock()
         self.robots: Dict[str, Dict[int, ClientRobot]] = {}
 
@@ -195,24 +212,28 @@ class Client:
         self.ball = None
 
         # ZMQ Context
-        self.context = zmq.Context()
+        #self.context = zmq.Context()
 
         # Creating subscriber connection
-        self.sub = self.context.socket(zmq.SUB)
-        self.sub.set_hwm(1)
-        self.sub.connect("tcp://" + host + ":7557")
-        self.sub.subscribe("")
+        # self.sub = self.context.socket(zmq.SUB)
+        # self.sub.set_hwm(1)
+        # self.sub.connect("tcp://" + host + ":7557")
+        # self.sub.subscribe("")
+
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.bind(('0.0.0.0', self.port))
+
         self.on_update = None
         self.sub_packets = 0
         self.sub_thread = threading.Thread(target=lambda: self.sub_process())
         self.sub_thread.start()
 
         # Informations from referee
-        self.referee = None
+        self.referee = {}
 
         # Creating request connection
-        self.req = self.context.socket(zmq.REQ)
-        self.req.connect("tcp://" + host + ":7558")
+        #self.req = self.context.socket(zmq.REQ)
+        #self.req.connect("tcp://" + host + ":7558")
 
         # Waiting for the first packet to be received, guarantees to have robot state after
         # client creation
@@ -234,36 +255,48 @@ class Client:
         self.stop()
 
     def update_position(self, tracked, infos):
-        tracked.position = np.array(infos["position"])
-        tracked.orientation = infos["orientation"]
-        if "feedback" in infos and infos["feedback"] is not None:
-            tracked.infrared = infos["feedback"]["infrared"]
-        tracked.pose = np.array(list(tracked.position) + [tracked.orientation])
-        tracked.last_update = time.time()
+        if "robot" in infos:
+            tracked.position = np.array(infos["robot"]["position"])
+            tracked.orientation = infos["robot"]["orientation"]
+            if "info" in infos["robot"] and infos["robot"]["info"] is not None:
+                # TODO: FIX THIS SHIT
+                # tracked.infrared = infos["robot"]["feedback"]["infrared"]
+                pass
+
+            tracked.pose = np.array(list(tracked.position) + [tracked.orientation])
+            tracked.last_update = time.time()
 
     def sub_process(self):
-        self.sub.RCVTIMEO = 1000
         last_t = time.time()
         while self.running:
             try:
-                json = self.sub.recv_json()
+                data = self.socket.recv(2048)
+                json = loads(data)
 
                 ts = time.time()
                 dt = ts - last_t
                 last_t = ts
 
-                if "ball" in json:
-                    self.ball = None if json["ball"] is None else np.array(json["ball"])
+                if "ball" in json and json["ball"] is not None:
+                    if self.ball is None:
+                        self.ball = np.array(json["ball"])
+                    else:
+                        self.ball[0] = json["ball"][0]
+                        self.ball[1] = json["ball"][1]
 
-                if "robots" in json:
-                    for team in json["robots"]:
-                        for number, robot in enumerate(json["robots"][team]):
-                            self.update_position(self.robots[team][number], robot)
+                if "allies" in json:
+                    for number, robot in enumerate(json["allies"]):
+                        if robot is None:
+                            continue
+                        self.update_position(self.robots["allies"][number], robot)
+                if "enemies" in json:
+                    for number, robot in enumerate(json["enemies"]):
+                        if robot is None:
+                            continue
+                        self.update_position(self.robots["enemies"][number], robot)
+
                 if "field" in json:
-                    self.referee = json["field"]
-
-                # if "referee" in json:
-                #     self.referee = json["referee"]
+                    self.referee["field"] = json["field"]
 
                 if self.on_update is not None:
                     self.on_update(self, dt)
@@ -289,15 +322,13 @@ class Client:
         self.stop_motion()
         self.running = False
 
-    def command(self, color, number, name, parameters):
+    def command(self, _color, number, name, parameters):
         if threading.current_thread() is threading.main_thread():
             sigint_handler = signal.getsignal(signal.SIGINT)
             signal.signal(signal.SIGINT, signal.SIG_IGN)
 
         self.lock.acquire()
         payload = {
-            "key": self.key,
-            "color": color,
             "number": number,
             "command": name,
             "params": parameters
