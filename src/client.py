@@ -149,7 +149,7 @@ class ClientRobot(ClientTracked):
         return arrived
 
     def goto_compute_order(self, target, skip_old=True, pid_mode=False):
-        p = 0.3
+        p = 3
         i = 0
         d = 0
 
