@@ -5,6 +5,12 @@ This file contains all relevant constants. It can be dimension of items or value
 the rules.
 """
 
+blue_send_port: int = 11300
+blue_data_port: int = 11301
+
+yellow_send_port: int = 11302
+yellow_data_port: int = 11303
+
 # Field dimension
 field_length: float = 1.84  # [m] (x axis)
 field_width: float = 1.23  # [m] (y axis)
