@@ -1,4 +1,9 @@
+import fcntl
+import json
+import os
 import signal
+import socket
+from enum import Enum
 from typing import *
 
 import numpy as np
@@ -8,6 +13,13 @@ import time
 
 import constants
 import utils
+
+
+class KICK(Enum):
+    NO_KICK = 0
+    STRAIGHT_KICK = 1
+    CHIP_KICK = 2
+
 
 configurations = {
     "dots": [
@@ -109,18 +121,21 @@ class ClientRobot(ClientTracked):
         return time.time() - self.last_update
 
     def kick(self, power=1., chip_kick=False):
-        return self.client.command(self.color, self.number, "kick", {"power": power, "chip_kick": chip_kick})
+        if chip_kick:
+            self.client.command(number=self.number, power=power, kick=KICK.CHIP_KICK)
+        else:
+            self.client.command(number=self.number, power=power, kick=KICK.STRAIGHT_KICK)
 
     def dribble(self, speed):
-        return self.client.command(self.color, self.number, "dribble", {"speed": speed})
+        return self.client.command(number=self.number, dribbler=speed)
 
     def control(self, dx, dy, dturn):
         self.moved = True
 
-        return self.client.command(self.color, self.number, "control", {"dx": dx, "dy": dy, "dturn": dturn})
+        return self.client.command(number=self.number, forward_velocity=dx, left_velocity=dy, angular_velocity=dturn)
 
-    def leds(self, r, g, b):
-        return self.client.command(self.color, self.number, "leds", {"r": r, "g": g, "b": b})
+    # def leds(self, r, g, b):
+    #     return self.client.command(self.color, self.number, "leds", {"r": r, "g": g, "b": b})
 
     def goto(self, target, wait=True, skip_old=True, pid_mode=False):
         if wait:
@@ -173,11 +188,13 @@ class ClientRobot(ClientTracked):
 
 
 class Client:
-    def __init__(self, host="127.0.0.1", key="", wait_ready=True):
+    def __init__(self, host="127.0.0.1", key="", is_yellow=False, wait_ready=True):
+        self.host = host
         self.running = True
-        self.key = key
         self.lock = threading.Lock()
         self.robots: Dict[str, Dict[int, ClientRobot]] = {}
+        self.data_port = constants.yellow_data_port if is_yellow else constants.blue_data_port
+        self.send_port = constants.yellow_send_port if is_yellow else constants.blue_send_port
 
         # Creating self.green1, self.green2 etc.
         for color, number in utils.all_robots():
@@ -198,10 +215,10 @@ class Client:
         self.context = zmq.Context()
 
         # Creating subscriber connection
-        self.sub = self.context.socket(zmq.SUB)
-        self.sub.set_hwm(1)
-        self.sub.connect("tcp://" + host + ":7557")
-        self.sub.subscribe("")
+        self.recv_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.recv_socket.bind(('0.0.0.0', self.data_port))
+        fcntl.fcntl(self.recv_socket, fcntl.F_SETFL, os.O_NONBLOCK)
+
         self.on_update = None
         self.sub_packets = 0
         self.sub_thread = threading.Thread(target=lambda: self.sub_process())
@@ -211,8 +228,9 @@ class Client:
         self.referee = None
 
         # Creating request connection
-        self.req = self.context.socket(zmq.REQ)
-        self.req.connect("tcp://" + host + ":7558")
+
+        self.send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.send_socket.connect((self.host, self.send_port))
 
         # Waiting for the first packet to be received, guarantees to have robot state after
         # client creation
@@ -242,23 +260,24 @@ class Client:
         tracked.last_update = time.time()
 
     def sub_process(self):
-        self.sub.RCVTIMEO = 1000
         last_t = time.time()
         while self.running:
             try:
-                json = self.sub.recv_json()
-
+                data = json.loads(self.recv_socket.recv(4096))
                 ts = time.time()
                 dt = ts - last_t
                 last_t = ts
 
-                if "ball" in json:
-                    self.ball = None if json["ball"] is None else np.array(json["ball"])
+                if "ball" in data:
+                    self.ball = None if data["ball"] is None else np.array(data["ball"])
 
-                if "robots" in json:
-                    for team in json["robots"]:
-                        for number, robot in enumerate(json["robots"][team]):
-                            self.update_position(self.robots[team][number], robot)
+                for team in utils.robot_teams():
+                    if team in data:
+                        for number, robot in enumerate(data[team]):
+                            if robot is not None and "robot" in robot:
+                                self.update_position(self.robots[team][number], robot["robot"])
+                if "field" in data:
+                    self.referee = data["field"]
 
                 # if "referee" in json:
                 #     self.referee = json["referee"]
@@ -267,7 +286,7 @@ class Client:
                     self.on_update(self, dt)
 
                 self.sub_packets += 1
-            except zmq.error.Again:
+            except socket.error as e:
                 pass
 
     def stop_motion(self):
@@ -287,32 +306,60 @@ class Client:
         self.stop_motion()
         self.running = False
 
-    def command(self, color, number, name, parameters):
+    def command_to_json(self, number, forward_velocity=0.0, left_velocity=0.0, angular_velocity=0.0,
+                        kick=KICK.NO_KICK, charge=False, power=0.0, dribbler=0.0):
+        if kick == KICK.STRAIGHT_KICK:
+            return {
+                "Command": {
+                    "id": number,
+                    "forward_velocity": forward_velocity,
+                    "left_velocity": left_velocity,
+                    "angular_velocity": angular_velocity,
+                    "charge": charge,
+                    "kick": {"StraightKick": {"power": power}},
+                    "dribbler": dribbler
+                }
+            }
+        elif kick == KICK.CHIP_KICK:
+            return {
+                "Command": {
+                    "id": number,
+                    "forward_velocity": forward_velocity,
+                    "left_velocity": left_velocity,
+                    "angular_velocity": angular_velocity,
+                    "charge": charge,
+                    "kick": {"ChipKick": {"power": power}},
+                    "dribbler": dribbler
+                }
+            }
+        return {
+            "Command": {
+                "id": number,
+                "forward_velocity": forward_velocity,
+                "left_velocity": left_velocity,
+                "angular_velocity": angular_velocity,
+                "charge": charge,
+                "dribbler": dribbler
+            }
+        }
+
+    def command(self, number, forward_velocity=0.0, left_velocity=0.0, angular_velocity=0.0,
+                kick=KICK.NO_KICK, charge=False, power=0.0, dribbler=0.0):
         if threading.current_thread() is threading.main_thread():
             sigint_handler = signal.getsignal(signal.SIGINT)
             signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-        self.lock.acquire()
-        payload = {
-            "key": self.key,
-            "color": color,
-            "number": number,
-            "command": name,
-            "params": parameters
-        }
-
-        # self.req.send_json([self.key, color, number, [name, *parameters]])
-        self.req.send_json(payload)
-        success, message = self.req.recv_json()
-        self.lock.release()
+        data = [self.command_to_json(number, forward_velocity, left_velocity, angular_velocity,
+                             kick, charge, power, dribbler)]
+        print(data)
+        # self.lock.acquire()
+        self.send_socket.sendall(json.dumps(data).encode())
+        # self.lock.release()
 
         if threading.current_thread() is threading.main_thread():
             signal.signal(signal.SIGINT, sigint_handler)
 
         time.sleep(0.01)
-
-        if not success:
-            raise ClientError('Command "' + name + '" failed: ' + message)
 
     def goto_configuration(self, configuration_name="side", wait=False):
         targets = configurations[configuration_name]
