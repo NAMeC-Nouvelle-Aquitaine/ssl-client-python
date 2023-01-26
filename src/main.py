@@ -3,10 +3,10 @@ import time
 import numpy as np
 
 from client import Client
-from src.rrt import RRT_star, dijkstra, plot
+from rrt import RRT_star, dijkstra, plot
 
 with Client(host='127.0.0.1', key='') as client:
-    robot = client.robots["blue"][0]
+    robot = client.robots["allies"][0]
     print(client.ball)
     print(robot)
     # robot.goto(lambda: (-2., 0., 0.), wait=True)
@@ -14,14 +14,14 @@ with Client(host='127.0.0.1', key='') as client:
     startpos = (robot.position[0], robot.position[1])
     endpos = (3.0, 0.0)
     obstacles = []
-    for r in client.robots["blue"].values():
+    for r in client.robots["allies"].values():
         if r != robot:
             obstacles.append((r.position[0], r.position[1]))
-    for r in client.robots["yellow"].values():
+    for r in client.robots["enemies"].values():
         if r != robot:
             obstacles.append((r.position[0], r.position[1]))
 
-    n_iter = 600
+    n_iter = 100
     radius = 0.2
     stepSize = 0.3
 
