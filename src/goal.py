@@ -11,12 +11,12 @@ with Client(host='127.0.0.1', key='') as client:
             print("Number notvalid")
         else:
             finished = True;
-    robot = client.robots["blue"][numero_of_robot]
+    robot = client.robots["allies"][numero_of_robot]
     while True:
         for i in np.arange(client.ball[1] - 0.3, client.ball[1] + 0.3,0.1):
-            robot.goto((-4.4, i, 0),wait=False)
+            robot.goto((-1.5, i, 0),wait=False)
         for i in np.arange(client.ball[1] + 0.3, client.ball[1] - 0.3,-0.1):
-            robot.goto((-4.4,i,0),wait=False)
+            robot.goto((-1.5,i,0),wait=False)
         if client.ball[0] <= -3.4:
             robot.goto((client.ball[0]-0.05,client.ball[1],0))
             robot.dribble(100)
