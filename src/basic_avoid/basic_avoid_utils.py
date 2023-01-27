@@ -1,10 +1,24 @@
 import numpy as np
 from scipy.optimize import fsolve as scipy_fsolve
-from basic_avoid.basic_avoid_consts import Point, Circle
+
+from .basic_avoid_consts import danger_circle_radius
+from .basic_avoid_types import Circle
 from typing import Callable
+from src.client import ClientRobot
 
 
-def traj_function(a: Point, b: Point, general_form=False) -> Callable[[float, [float]], float]:
+def distance(a: np.array, b: np.array):
+    return np.sqrt((b[0] - a[0])**2 + (b[1] - a[1])**2)
+
+
+def danger_circle(r: ClientRobot):
+    return Circle(
+        r.position,
+        danger_circle_radius
+    )
+
+
+def traj_function(a: np.array, b: np.array, general_form=False) -> Callable[[float, [float]], float]:
     """
     Computes the lambda function describing a straight line
     trajectory from point a to point b
@@ -17,38 +31,42 @@ def traj_function(a: Point, b: Point, general_form=False) -> Callable[[float, [f
         Set to True to return the general form of the equation lambda function.
     """
     m: float = -1
-    if np.isclose([b.y - a.y], [0.]):
-        m = 1
+
+    # Can't create a vertical line function
+    # Approximating it using a very low slope coefficient when both x coordinates are close
+    # TODO: create a test case for this approximation
+    if np.isclose(b[0] - a[0], [0.], rtol=0.1).all():
+        m = 0.000001
     else:
-        m = (b.y - a.y) / (b.x - a.x)
+        m = (b[1] - a[1]) / (b[0] - a[0])
 
     # Use point a to solve the ordinate of the origin of the function
     # Because y = m*x + p ; y - m*x = p
-    p: float = a.y - m * a.x
+    p: float = a[1] - m * a[0]
     if general_form:
-        return lambda x, y: m*x + p - y
-    return lambda x: m*x + p
+        return lambda x, y: m * x + p - y
+    return lambda x: m * x + p
 
 
-def circle_gen_eq(center: Point, r: float) -> Callable[[float, float], float]:
+def circle_gen_eq(center: np.array, r: float) -> Callable[[float, float], float]:
     """
     Returns the general form of the equation of a circle
     Tip : general form is an equation equal to  0
     """
-    return lambda x, y: np.power(x - center.x, 2) + np.power(y - center.y, 2) - np.power(r, 2)
+    return lambda x, y: np.power(x - center[0], 2) + np.power(y - center[1], 2) - np.power(r, 2)
 
 
-def angle_towards(src: Point, dst: Point) -> float:
+def angle_towards(src: np.array, dst: np.array) -> float:
     """
     Returns the angle in radian from one point towards another one point
     """
     return np.arctan2(
-        dst.y - src.y,
-        dst.x - src.x
+        dst[1] - src[1],
+        dst[0] - src[0],
     )
 
 
-def compute_intersections(circle: Circle, line: tuple[Point, Point]) -> tuple[np.ndarray, bool]:
+def compute_intersections(circle: Circle, line: tuple[np.array, np.array]) -> tuple[np.ndarray, bool]:
     """
     Using a circle and the source and two distinct points of a line, computes
     the number of crossing points between the circle and the line.
@@ -83,7 +101,7 @@ def compute_intersections(circle: Circle, line: tuple[Point, Point]) -> tuple[np
     return roots, solution_found
 
 
-def compute_waypoint(circle: Circle, line: tuple[Point, Point], forward_theta_delta=10) -> Point:
+def compute_waypoint(circle: Circle, line: tuple[np.array, np.array], forward_theta_delta=10) -> np.array:
     """
     Given a specific danger circle and two source and destination points,
     determines a waypoint to go to avoid said circle.
@@ -119,7 +137,7 @@ def compute_waypoint(circle: Circle, line: tuple[Point, Point], forward_theta_de
     last_triangle_angle = 180 - DSC_angle - 90
 
     # Angle needs to be adapted to find the resulting vector
-    angle_sign = 1 if (circle.center.x >= line[0].x and circle.center.y >= line[0].y) else -1
+    angle_sign = 1 if (circle.center[0] >= line[0][0] and circle.center[1] >= line[0][1]) else -1
     CS_theta = np.rad2deg(angle_towards(circle.center, line[0])) % 360  # Same as SC_theta + np.pi ?
 
     # Angle from circle center towards line is only the center->src angle plus
@@ -131,16 +149,13 @@ def compute_waypoint(circle: Circle, line: tuple[Point, Point], forward_theta_de
 
     # Using the circle's center point, and the found angle towards the line, we can compute
     # another point that is aligned to the vector
-    r: float = 42.  # Arbitrary length, the value itself isn't important, but must be > 1
-    aligned_pt: Point = Point(
-        circle.center.x + (r * np.cos(waypoint_vec_theta)),  # | Polar to cartesian coordinates conversion
-        circle.center.y + (r * np.sin(waypoint_vec_theta))   # | x = r * cos(theta)  and  y = r * sin(theta)
+    r: float = 2.  # Arbitrary length, the value itself isn't important, but must be > 1
+    aligned_pt: np.array = np.array(
+        [circle.center[0] + (r * np.cos(waypoint_vec_theta)),  # | Polar to cartesian coordinates conversion
+         circle.center[1] + (r * np.sin(waypoint_vec_theta))]  # | x = r * cos(theta)  and  y = r * sin(theta)
     )
 
     # Get intersection between calculated vector and danger circle, which is the effective waypoint to attain
     waypoint, _ = compute_intersections(circle=circle, line=(circle.center, aligned_pt))
-
-    # Convert waypoints into Point objects, better style-wise =)
-    waypoint = Point(waypoint[0], waypoint[1])
 
     return waypoint
