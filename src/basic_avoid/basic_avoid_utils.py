@@ -158,4 +158,15 @@ def compute_waypoint(circle: Circle, line: tuple[np.array, np.array], forward_th
     # Get intersection between calculated vector and danger circle, which is the effective waypoint to attain
     waypoint, _ = compute_intersections(circle=circle, line=(circle.center, aligned_pt))
 
+    # Move waypoint further away from circle
+    vec_circ_center__to_wp = waypoint - circle.center
+    print(vec_circ_center__to_wp)
+    norm = np.sqrt(np.sum(vec_circ_center__to_wp**2))
+    print(norm)
+    norm = 1 if norm == 0 else norm
+    vec_circ_center__to_wp = vec_circ_center__to_wp / norm
+    print(vec_circ_center__to_wp)
+
+    waypoint += vec_circ_center__to_wp * 0.2
+
     return waypoint

@@ -150,7 +150,7 @@ class ClientRobot(ClientTracked):
         return arrived
 
     def goto_compute_order(self, target, skip_old=True, pid_mode=False):
-        p = 3
+        p = 1
         i = 0
         d = 0
 
@@ -351,7 +351,7 @@ class Client:
 
         data = [self.command_to_json(number, forward_velocity, left_velocity, angular_velocity,
                              kick, charge, power, dribbler)]
-        print(data)
+        # print(data)
         # self.lock.acquire()
         self.send_socket.sendall(json.dumps(data).encode())
         # self.lock.release()

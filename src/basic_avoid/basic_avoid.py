@@ -49,11 +49,11 @@ def goto_avoid(client: Client, robot: ClientRobot, dst: np.array, avoid_list: li
 
         print("going to waypoint")
         print(f"real waypoint : {wp}")
-        # robot.goto((wp[0], wp[1], 0.), wait=False)
+        robot.goto((wp[0], wp[1], 0.), wait=False)
     else:
         # Otherwise you go to the destination
         print("straight to dst")
-        # robot.goto((dst[0], dst[1], 0.), wait=False)
+        robot.goto((dst[0], dst[1], 0.), wait=False)
 
 
 def visualize_circle(client: Client, robot: ClientRobot, circle: Circle):
@@ -70,6 +70,7 @@ def visualize_circle(client: Client, robot: ClientRobot, circle: Circle):
         y = y_rob + (radius * np.cos(np.deg2rad(deg)))
         robot.goto((x, y, float(angle_towards(np.array([x, y]), np.array([x_rob, y_rob])))))
 
+
 def step(client: Client):
     declare_robots(client)
     # visualize_circle(manager, manager.robots["enemies"][0], danger_circle(manager.robots["enemies"][0]))
@@ -79,4 +80,5 @@ def step(client: Client):
     #     (manager.robots["allies"][0].position, manager.robots["allies"][2].position)
     # )
     # print(inter)
-    goto_avoid(client, robot=ally, dst=crab_minion.position, avoid_list=client.robots["enemies"][:6])
+    avoid_list = [client.robots["enemies"][3]]
+    goto_avoid(client, robot=ally, dst=crab_minion.position, avoid_list=avoid_list)
