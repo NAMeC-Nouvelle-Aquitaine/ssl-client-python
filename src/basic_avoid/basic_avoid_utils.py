@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.optimize import fsolve as scipy_fsolve
 
-from .basic_avoid_consts import danger_circle_radius
+from .basic_avoid_consts import danger_circle_radius, AVOID_DIST_FACTOR
 from .basic_avoid_types import Circle
 from typing import Callable
 from src.client import ClientRobot
@@ -66,7 +66,7 @@ def angle_towards(src: np.array, dst: np.array) -> float:
     )
 
 
-def compute_intersections(circle: Circle, line: tuple[np.array, np.array]) -> tuple[np.ndarray, bool]:
+def compute_intersections(circle: Circle, line: tuple[np.array, np.array]) -> tuple[list[np.ndarray], bool]:
     """
     Using a circle and the source and two distinct points of a line, computes
     the number of crossing points between the circle and the line.
@@ -92,16 +92,32 @@ def compute_intersections(circle: Circle, line: tuple[np.array, np.array]) -> tu
     # The function might not find a proper root. We ask for the full output of the function
     # and only grab the returned roots and a special return value.
 
+    roots = []
     equation = lambda xy: [line_fc(xy[0], xy[1]), circle_fc(xy[0], xy[1])]
-    roots, _, retval, _ = scipy_fsolve(equation, np.zeros(2), full_output=True)
+    intersect_point, _, retval, _ = scipy_fsolve(equation, np.array([-10, -10]), full_output=True)
 
     # The variable retval should be set to 1 if correct roots have been found
     solution_found = retval == 1
+    roots.append(intersect_point)
+
+    # Artificially find the extra intersection
+    symmetrical_intersect = point_symmetry(intersect_point, circle.center)
+    if np.isclose(circle_fc(*symmetrical_intersect), 0., rtol=0.01):
+        roots.append(symmetrical_intersect)
 
     return roots, solution_found
 
 
-def compute_waypoint(circle: Circle, line: tuple[np.array, np.array], forward_theta_delta=10) -> np.array:
+def point_symmetry(point: np.array, mirror: np.array):
+    """
+    Performs a 180° rotation of the given point, returning the mirror point
+    """
+    p_to_mir = mirror - point
+    symmetrical = p_to_mir + mirror
+    return symmetrical
+
+
+def compute_waypoint(circle: Circle, line: tuple[np.array, np.array]) -> np.array:
     """
     Given a specific danger circle and two source and destination points,
     determines a waypoint to go to avoid said circle.
@@ -137,36 +153,50 @@ def compute_waypoint(circle: Circle, line: tuple[np.array, np.array], forward_th
     last_triangle_angle = 180 - DSC_angle - 90
 
     # Angle needs to be adapted to find the resulting vector
-    angle_sign = 1 if (circle.center[0] >= line[0][0] and circle.center[1] >= line[0][1]) else -1
+    angle_sign = 1  # if (circle.center[0] >= line[0][0] and circle.center[1] >= line[0][1]) else -1
     CS_theta = np.rad2deg(angle_towards(circle.center, line[0])) % 360  # Same as SC_theta + np.pi ?
 
     # Angle from circle center towards line is only the center->src angle plus
     # the computed angle of the triangle
     waypoint_vec_theta = np.deg2rad(CS_theta + (last_triangle_angle * angle_sign))
 
-    # Adding a small delta to the angle to make the waypoint a bit closer to the destination point
-    waypoint_vec_theta += np.deg2rad((forward_theta_delta * angle_sign))
-
     # Using the circle's center point, and the found angle towards the line, we can compute
     # another point that is aligned to the vector
     r: float = 2.  # Arbitrary length, the value itself isn't important, but must be > 1
     aligned_pt: np.array = np.array(
-        [circle.center[0] + (r * np.cos(waypoint_vec_theta)),  # | Polar to cartesian coordinates conversion
-         circle.center[1] + (r * np.sin(waypoint_vec_theta))]  # | x = r * cos(theta)  and  y = r * sin(theta)
+        [circle.center[0] + r * np.cos(waypoint_vec_theta),  # | Polar to cartesian coordinates conversion
+         circle.center[1] + r * np.sin(waypoint_vec_theta)]  # | x = r * cos(theta)  and  y = r * sin(theta)
     )
 
     # Get intersection between calculated vector and danger circle, which is the effective waypoint to attain
-    waypoint, _ = compute_intersections(circle=circle, line=(circle.center, aligned_pt))
+    intersects, _ = compute_intersections(circle=circle, line=(circle.center, aligned_pt))
 
-    # Move waypoint further away from circle
-    vec_circ_center__to_wp = waypoint - circle.center
-    print(vec_circ_center__to_wp)
-    norm = np.sqrt(np.sum(vec_circ_center__to_wp**2))
-    print(norm)
-    norm = 1 if norm == 0 else norm
-    vec_circ_center__to_wp = vec_circ_center__to_wp / norm
-    print(vec_circ_center__to_wp)
+    # Waypoint to go to is the closest to the robot
+    waypoint = closest_to_dst(intersects, line[1])
 
-    waypoint += vec_circ_center__to_wp * 0.2
+    # Space waypoint away a little from circle
+    space_away_vec = normalize_vec(waypoint - circle.center)
+    waypoint += space_away_vec * AVOID_DIST_FACTOR
 
     return waypoint
+
+
+def normalize_vec(vec: np.array):
+    norm = np.sqrt(np.sum(vec ** 2))
+    norm = 1 if norm == 0 else norm
+    normalized_vec = vec / norm
+
+    return normalized_vec
+
+
+def closest_to_dst(points: list[np.array], origin: np.array):
+    """
+    Return the point that is the closest to the given destination point
+    """
+    if len(points) == 1:
+        return points[0]
+
+    dist_to_robot = lambda xy: np.linalg.norm(origin - xy)
+    wp_dists = list(map(dist_to_robot, points))
+    index_min_dist = min(range(len(wp_dists)), key=wp_dists.__getitem__)
+    return points[index_min_dist]
