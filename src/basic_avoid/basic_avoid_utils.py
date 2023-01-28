@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.optimize import fsolve as scipy_fsolve
 
-from .basic_avoid_consts import danger_circle_radius, AVOID_DIST_FACTOR
+from .basic_avoid_consts import danger_circle_radius, AVOID_DIST_FACTOR_MAX
 from .basic_avoid_types import Circle
 from typing import Callable
 from src.client import ClientRobot
@@ -48,12 +48,17 @@ def traj_function(a: np.array, b: np.array, general_form=False) -> Callable[[flo
     return lambda x: m * x + p
 
 
-def circle_gen_eq(center: np.array, r: float) -> Callable[[float, float], float]:
+def circle_gen_eq(center: np.array, r: float, general_form=True) -> Callable[[float, float], float]:
     """
     Returns the general form of the equation of a circle
-    Tip : general form is an equation equal to  0
+    as (x - k)² + (y - h)² - r² = 0
+
+    If general_form is set to false, we return the same equation but without the radius included
+    as (x - k)² + (y - h)² = 0
     """
-    return lambda x, y: np.power(x - center[0], 2) + np.power(y - center[1], 2) - np.power(r, 2)
+    if general_form:
+        return lambda x, y: np.power(x - center[0], 2) + np.power(y - center[1], 2) - np.power(r, 2)
+    return lambda x, y: np.power(x - center[0], 2) + np.power(y - center[1], 2)
 
 
 def angle_towards(src: np.array, dst: np.array) -> float:
@@ -117,7 +122,7 @@ def point_symmetry(point: np.array, mirror: np.array):
     return symmetrical
 
 
-def compute_waypoint(circle: Circle, line: tuple[np.array, np.array]) -> np.array:
+def compute_waypoint(circle: Circle, line: tuple[np.array, np.array], rob_circles_avoid_list: list[Circle]) -> np.array:
     """
     Given a specific danger circle and two source and destination points,
     determines a waypoint to go to avoid said circle.
@@ -153,12 +158,11 @@ def compute_waypoint(circle: Circle, line: tuple[np.array, np.array]) -> np.arra
     last_triangle_angle = 180 - DSC_angle - 90
 
     # Angle needs to be adapted to find the resulting vector
-    angle_sign = 1  # if (circle.center[0] >= line[0][0] and circle.center[1] >= line[0][1]) else -1
     CS_theta = np.rad2deg(angle_towards(circle.center, line[0])) % 360  # Same as SC_theta + np.pi ?
 
     # Angle from circle center towards line is only the center->src angle plus
     # the computed angle of the triangle
-    waypoint_vec_theta = np.deg2rad(CS_theta + (last_triangle_angle * angle_sign))
+    waypoint_vec_theta = np.deg2rad(CS_theta + last_triangle_angle)
 
     # Using the circle's center point, and the found angle towards the line, we can compute
     # another point that is aligned to the vector
@@ -171,14 +175,51 @@ def compute_waypoint(circle: Circle, line: tuple[np.array, np.array]) -> np.arra
     # Get intersection between calculated vector and danger circle, which is the effective waypoint to attain
     intersects, _ = compute_intersections(circle=circle, line=(circle.center, aligned_pt))
 
-    # Waypoint to go to is the closest to the robot
-    waypoint = closest_to_dst(intersects, line[1])
-
     # Space waypoint away a little from circle
-    space_away_vec = normalize_vec(waypoint - circle.center)
-    waypoint += space_away_vec * AVOID_DIST_FACTOR
+    possible_waypoints = space_away(intersects, circle, rob_circles_avoid_list)
+
+    # Waypoint to go to is the closest to the robot
+    waypoint = closest_to_dst(possible_waypoints, line[1])
 
     return waypoint
+
+
+def space_away(points: list[np.array], cir: Circle, circs_avoid: list[Circle]) -> list[np.array]:
+    """
+    With a list of possible points to attain
+    Move the given points a little further from the given circle's center, and by
+    continually trying to avoid to put the waypoint in another danger circle
+    Prints out a warning if it couldn't place a point out of a danger circle
+    """
+    result = []
+    norm_vectors = [normalize_vec(p - cir.center) for p in points]
+
+    for i in range(len(points)):
+        p: np.array = points[i]
+        unit_vec = norm_vectors[i]
+        # TODO: put a point instead of None
+        best_match = None
+
+        # consider that best match is the point that uses the smallest k coefficient
+        for k in np.arange(AVOID_DIST_FACTOR_MAX, 0, -0.1):
+            point_away: np.array = p + unit_vec * k
+            # check if calculated point away is inside any danger circle that we should avoid
+            # TODO: maybe this check can be replaced by using intersections with an affine function and circles ?
+            inside_dgr_circles = np.array([
+                circle_gen_eq(c.center, c.r, general_form=False)(*point_away) < np.power(c.r, 2)
+                for c in circs_avoid
+            ])
+            # keep current point away if previous condition is met
+            if not inside_dgr_circles.any():
+                best_match = point_away
+
+        result.append(best_match)
+
+    # # TODO: warn user if bot is gonna collide with someone
+    # if None in result:
+    #     print("Warning : space_away() couldn't return proper waypoints")
+
+    return result
 
 
 def normalize_vec(vec: np.array):
@@ -196,7 +237,9 @@ def closest_to_dst(points: list[np.array], origin: np.array):
     if len(points) == 1:
         return points[0]
 
-    dist_to_robot = lambda xy: np.linalg.norm(origin - xy)
+    # the None coalescing op is required to avoid subtracting to None
+    # replaces None with absurdly far coordinates
+    dist_to_robot = lambda xy: np.linalg.norm(origin - (xy if xy is not None else np.array([-100, -100])))
     wp_dists = list(map(dist_to_robot, points))
     index_min_dist = min(range(len(wp_dists)), key=wp_dists.__getitem__)
     return points[index_min_dist]

@@ -3,7 +3,7 @@ import numpy as np
 from .basic_avoid_consts import danger_circle_radius
 from .basic_avoid_types import Circle
 from .basic_avoid_utils import angle_towards, compute_intersections, compute_waypoint, danger_circle, distance, \
-    point_symmetry, closest_to_dst
+    point_symmetry, closest_to_dst, circle_gen_eq
 from client import ClientRobot, Client
 
 global ally, enemy, crab_minion
@@ -25,6 +25,7 @@ def goto_avoid(robot: ClientRobot, dst: np.array, avoid_list: list[ClientRobot])
     # Save the source position of the robot
     src = robot.position
     waypoints = []
+    dgr_circles_to_avoid = [danger_circle(rob) for rob in avoid_list]
 
     # Compute waypoints to avoid each robot in the avoid list
     for enn in avoid_list:
@@ -37,18 +38,18 @@ def goto_avoid(robot: ClientRobot, dst: np.array, avoid_list: list[ClientRobot])
                 # print(f"enn pos : {enn.position}")
                 # print(f"waypoints : {waypoints}")
                 print(f"guy to avoid : {enn.number}")
-                waypoints.append(compute_waypoint(circle=dgr_circle, line=(src, dst)))
+                waypoints.append(compute_waypoint(dgr_circle, (src, dst), dgr_circles_to_avoid))
 
     # If there are waypoints to go to
     if len(waypoints) > 0:
         # Grab the waypoint closest to the robot, and closest to the destination
         wp = closest_to_dst(waypoints, src)
         print(f"going to waypoint {wp}")
-        robot.goto((wp[0], wp[1], 0.), wait=False)
+        robot.goto((wp[0], wp[1], 0.), wait=True)
     else:
         # Otherwise you go to the destination
         print("straight to dst")
-        robot.goto((dst[0], dst[1], 0.), wait=False)
+        robot.goto((dst[0], dst[1], 0.), wait=True)
 
 
 def visualize_circle(robot: ClientRobot, circle: Circle):
