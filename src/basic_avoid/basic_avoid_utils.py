@@ -176,7 +176,7 @@ def compute_waypoint(circle: Circle, line: tuple[np.array, np.array], rob_circle
     intersects, _ = compute_intersections(circle=circle, line=(circle.center, aligned_pt))
 
     # Space waypoint away a little from circle
-    possible_waypoints = space_away(intersects, circle, rob_circles_avoid_list)
+    possible_waypoints = space_away_from_circle(intersects, circle, rob_circles_avoid_list, src=line[0])
 
     # Waypoint to go to is the closest to the robot
     waypoint = closest_to_dst(possible_waypoints, line[1])
@@ -184,7 +184,7 @@ def compute_waypoint(circle: Circle, line: tuple[np.array, np.array], rob_circle
     return waypoint
 
 
-def space_away(points: list[np.array], cir: Circle, circs_avoid: list[Circle]) -> list[np.array]:
+def space_away_from_circle(points: list[np.array], cir: Circle, circs_avoid: list[Circle], src: np.array) -> list[np.array]:
     """
     With a list of possible points to attain
     Move the given points a little further from the given circle's center, and by
@@ -203,10 +203,12 @@ def space_away(points: list[np.array], cir: Circle, circs_avoid: list[Circle]) -
         # consider that best match is the point that uses the smallest k coefficient
         for k in np.arange(AVOID_DIST_FACTOR_MAX, 0, -0.1):
             point_away: np.array = p + unit_vec * k
+            line = (src, point_away)
             # check if calculated point away is inside any danger circle that we should avoid
             # TODO: maybe this check can be replaced by using intersections with an affine function and circles ?
             inside_dgr_circles = np.array([
-                circle_gen_eq(c.center, c.r, general_form=False)(*point_away) < np.power(c.r, 2)
+                # circle_gen_eq(c.center, c.r, general_form=False)(*point_away) < np.power(c.r, 2)
+                compute_intersections(c, line)[1]
                 for c in circs_avoid
             ])
             # keep current point away if previous condition is met
@@ -215,7 +217,7 @@ def space_away(points: list[np.array], cir: Circle, circs_avoid: list[Circle]) -
 
         result.append(best_match)
 
-    # # TODO: warn user if bot is gonna collide with someone
+    # # TODO: warn user if bot is gonna collide with someone (no best match found)
     # if None in result:
     #     print("Warning : space_away() couldn't return proper waypoints")
 
@@ -243,3 +245,9 @@ def closest_to_dst(points: list[np.array], origin: np.array):
     wp_dists = list(map(dist_to_robot, points))
     index_min_dist = min(range(len(wp_dists)), key=wp_dists.__getitem__)
     return points[index_min_dist]
+
+
+def check_collision(c: Circle, p: np.array):
+    """
+    Determines whether there will be a collision with a given
+    """

@@ -8,4 +8,4 @@ danger_circle_radius = 2 * robot_radius + danger_k
 
 # Used in compute_waypoint() to space the waypoint away from the danger circle
 # pretty random atm, gotta fix it properly
-AVOID_DIST_FACTOR_MAX = 0.6
+AVOID_DIST_FACTOR_MAX = 0.9

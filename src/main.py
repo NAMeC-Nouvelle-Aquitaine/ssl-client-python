@@ -2,11 +2,12 @@ from client import Client
 from basic_avoid import basic_avoid
 
 """
-Side notes about the implementation :
+Side notes about the avoidance implementation :
 
-    If this is meant to be used during the competition, the avoidance path computed
-    if multiple robots form a wall. The current algorithm will try to pierce through that wall
-    We need to pre-calculate areas or blobs to avoid
+    We need to pre-calculate areas or blobs to avoid to improve calculation
+    
+    If a robot is way too close to the robot to move ( < 0.01m ) the algorithm crashes and doesn't find any waypoint.
+    Can be fixed by modifying the move vectors to go in all 4 directions in function space_away_from_circle()
 """
 
 
