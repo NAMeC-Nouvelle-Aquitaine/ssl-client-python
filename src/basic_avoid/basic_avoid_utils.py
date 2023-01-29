@@ -84,7 +84,6 @@ def compute_intersections(circle: Circle, line: tuple[np.array, np.array]) -> tu
         Second is destination point
     """
 
-    # Compute straight line trajectory
     # Important : set general_form to True to make it compliant with scipy.optimize.fsolve
     line_fc = traj_function(line[0], line[1], general_form=True)
 
@@ -98,19 +97,29 @@ def compute_intersections(circle: Circle, line: tuple[np.array, np.array]) -> tu
     # and only grab the returned roots and a special return value.
 
     roots = []
-    equation = lambda xy: [line_fc(xy[0], xy[1]), circle_fc(xy[0], xy[1])]
+    equation = lambda xy: [line_fc(*xy), circle_fc(*xy)]
     intersect_point, _, retval, _ = scipy_fsolve(equation, np.array([-10, -10]), full_output=True)
 
-    # The variable retval should be set to 1 if correct roots have been found
     solution_found = retval == 1
     roots.append(intersect_point)
 
     # Artificially find the extra intersection
-    symmetrical_intersect = point_symmetry(intersect_point, circle.center)
-    if np.isclose(circle_fc(*symmetrical_intersect), 0., rtol=0.01):
-        roots.append(symmetrical_intersect)
+    artificial_intersect, valid = guess_extra_intersection(intersect_point, circle, circle_fc)
+    if valid:
+        roots.append(artificial_intersect)
 
     return roots, solution_found
+
+
+def guess_extra_intersection(intersect: np.array, circle: Circle, circle_fc: Callable[[float, float], float]) -> tuple[np.array, bool]:
+    """
+    Finds a possible second intersection using a 180° symmetry
+    If the obtained intersection is not in or on the circle, returns None
+    """
+    symmetrical_intersect = point_symmetry(intersect, circle.center)
+    if np.isclose(circle_fc(*symmetrical_intersect), 0., rtol=0.01):
+        return symmetrical_intersect, True
+    return np.zeros(2), False
 
 
 def point_symmetry(point: np.array, mirror: np.array):
@@ -147,22 +156,7 @@ def compute_waypoint(circle: Circle, line: tuple[np.array, np.array], rob_circle
     TODO: thoroughly test this function
     """
 
-    # Calculate the angle DSC (dst -> src -> center of circle)
-    SC_theta = np.rad2deg(angle_towards(line[0], circle.center)) % 360
-    SD_theta = np.rad2deg(angle_towards(line[0], line[1])) % 360
-    DSC_angle = abs(SC_theta - SD_theta)  # Could fail if both angles are the same. What to do if this happens ?
-
-    # We now need the angle of the vector that should go towards the line
-    # Using the fact that sum of all angles of a triangle is 180, we know one given angle
-    # and since we're looking for a right-angled triangle, last angle can be computed
-    last_triangle_angle = 180 - DSC_angle - 90
-
-    # Angle needs to be adapted to find the resulting vector
-    CS_theta = np.rad2deg(angle_towards(circle.center, line[0])) % 360  # Same as SC_theta + np.pi ?
-
-    # Angle from circle center towards line is only the center->src angle plus
-    # the computed angle of the triangle
-    waypoint_vec_theta = np.deg2rad(CS_theta + last_triangle_angle)
+    waypoint_vec_theta = triangle_normal_vec_theta(line, circle.center)
 
     # Using the circle's center point, and the found angle towards the line, we can compute
     # another point that is aligned to the vector
@@ -182,6 +176,33 @@ def compute_waypoint(circle: Circle, line: tuple[np.array, np.array], rob_circle
     waypoint = closest_to_dst(possible_waypoints, line[1])
 
     return waypoint
+
+
+def triangle_normal_vec_theta(line: tuple[np.array, np.array], point: np.array) -> float:
+    """
+    Using a source, destination, and an arbitrary point A,
+    computes a vector normal to the line crossed by src and dst points,
+    that starts at point A
+    """
+
+    # Calculate the angle DSC (dst -> src -> center of circle)
+    SC_theta = np.rad2deg(angle_towards(line[0], point)) % 360
+    SD_theta = np.rad2deg(angle_towards(line[0], line[1])) % 360
+    DSC_angle = abs(SC_theta - SD_theta)  # Could fail if both angles are the same. What to do if this happens ?
+
+    # We now need the angle of the vector that should go towards the line
+    # Using the fact that sum of all angles of a triangle is 180, we know one given angle
+    # and since we're looking for a right-angled triangle, last angle can be computed
+    last_triangle_angle = 180 - DSC_angle - 90
+
+    # Angle needs to be adapted to find the resulting vector
+    CS_theta = np.rad2deg(angle_towards(point, line[0])) % 360  # Same as SC_theta + np.pi ?
+
+    # Angle from circle center towards line is only the center->src angle plus
+    # the computed angle of the triangle
+    vec_normal_to_line_theta = np.deg2rad(CS_theta + last_triangle_angle)
+
+    return vec_normal_to_line_theta
 
 
 def space_away_from_circle(points: list[np.array], cir: Circle, circs_avoid: list[Circle], src: np.array) -> list[np.array]:
@@ -224,7 +245,10 @@ def space_away_from_circle(points: list[np.array], cir: Circle, circs_avoid: lis
     return result
 
 
-def normalize_vec(vec: np.array):
+def normalize_vec(vec: np.array) -> np.array:
+    """
+    Normalizes the given vector
+    """
     norm = np.sqrt(np.sum(vec ** 2))
     norm = 1 if norm == 0 else norm
     normalized_vec = vec / norm
@@ -232,7 +256,7 @@ def normalize_vec(vec: np.array):
     return normalized_vec
 
 
-def closest_to_dst(points: list[np.array], origin: np.array):
+def closest_to_dst(points: list[np.array], origin: np.array) -> np.array:
     """
     Return the point that is the closest to the given destination point
     """
@@ -246,8 +270,3 @@ def closest_to_dst(points: list[np.array], origin: np.array):
     index_min_dist = min(range(len(wp_dists)), key=wp_dists.__getitem__)
     return points[index_min_dist]
 
-
-def check_collision(c: Circle, p: np.array):
-    """
-    Determines whether there will be a collision with a given
-    """
