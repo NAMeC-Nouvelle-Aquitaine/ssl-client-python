@@ -238,9 +238,8 @@ def space_away_from_circle(points: list[np.array], cir: Circle, circs_avoid: lis
 
         result.append(best_match)
 
-    # # TODO: warn user if bot is gonna collide with someone (no best match found)
-    # if None in result:
-    #     print("Warning : space_away() couldn't return proper waypoints")
+    if None in result:
+        raise Exception(f"{__name__}.space_away() couldn't return proper waypoints")
 
     return result
 
