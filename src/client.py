@@ -150,7 +150,7 @@ class ClientRobot(ClientTracked):
         return arrived
 
     def goto_compute_order(self, target, skip_old=True, pid_mode=False):
-        p = 3
+        p = 1.5
         i = 0
         d = 0
 
@@ -178,7 +178,7 @@ class ClientRobot(ClientTracked):
         derivative = e - self.old_e
         self.old_e = e
 
-        arrived = np.linalg.norm(e) < 0.05
+        arrived = np.linalg.norm(e) < 0.1
         order = np.array([p, p, 1.5]) * e + d * derivative + i * self.integral
 
         return arrived, order
