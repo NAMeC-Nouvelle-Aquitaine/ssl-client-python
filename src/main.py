@@ -81,6 +81,9 @@ with Client(host='127.0.0.1', key='') as client:
         point = (point[1] - t)/10.
         print(point)
         robot.goto((*point, 0), wait=True)
+    while True:
+        robot.control(0, 0, 0)
+
     # while True:
     #     robot.control(0, 0, 0)
     #
