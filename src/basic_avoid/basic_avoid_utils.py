@@ -71,7 +71,7 @@ def angle_towards(src: np.array, dst: np.array) -> float:
     )
 
 
-def compute_intersections(circle: Circle, line: tuple[np.array, np.array]) -> tuple[list[np.ndarray], bool]:
+def compute_intersections(circle: Circle, line: tuple[np.array, np.array], ignore_behind: bool=False) -> tuple[list[np.ndarray], bool, bool]:
     """
     Using a circle and the source and two distinct points of a line, computes
     the number of crossing points between the circle and the line.
@@ -107,8 +107,13 @@ def compute_intersections(circle: Circle, line: tuple[np.array, np.array]) -> tu
     artificial_intersect, valid = guess_extra_intersection(intersect_point, circle, circle_fc)
     if valid:
         roots.append(artificial_intersect)
+    is_behind = False
+    if ignore_behind:
+        vec_src_dst = line[1] - line[0]
+        vec_src_circ = circle.center - line[0]
+        is_behind = np.dot(vec_src_dst, vec_src_circ) < 0
 
-    return roots, solution_found
+    return roots, solution_found, is_behind
 
 
 def guess_extra_intersection(intersect: np.array, circle: Circle, circle_fc: Callable[[float, float], float]) -> tuple[np.array, bool]:
