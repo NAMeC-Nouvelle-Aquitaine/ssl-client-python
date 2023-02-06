@@ -7,10 +7,6 @@ from typing import Callable
 from src.client import ClientRobot
 
 
-def distance(a: np.array, b: np.array):
-    return np.sqrt((b[0] - a[0])**2 + (b[1] - a[1])**2)
-
-
 def danger_circle(r: ClientRobot):
     return Circle(
         r.position,
@@ -71,7 +67,8 @@ def angle_towards(src: np.array, dst: np.array) -> float:
     )
 
 
-def compute_intersections(circle: Circle, line: tuple[np.array, np.array], ignore_behind: bool=False) -> tuple[list[np.ndarray], bool, bool]:
+def compute_intersections(circle: Circle, line: tuple[np.array, np.array], ignore_behind: bool = False) \
+        -> tuple[list[np.ndarray], bool]:
     """
     Using a circle and the source and two distinct points of a line, computes
     the number of crossing points between the circle and the line.
@@ -96,6 +93,12 @@ def compute_intersections(circle: Circle, line: tuple[np.array, np.array], ignor
     # The function might not find a proper root. We ask for the full output of the function
     # and only grab the returned roots and a special return value.
 
+    # Return empty values if the intersection does not matter
+    if ignore_behind:
+        is_behind = is_behind_check(src=line[0], dst=line[1], point=circle.center)
+        if is_behind:
+            return [np.zeros(2)], False
+
     roots = []
     equation = lambda xy: [line_fc(*xy), circle_fc(*xy)]
     intersect_point, _, retval, _ = scipy_fsolve(equation, np.array([-10, -10]), full_output=True)
@@ -104,19 +107,29 @@ def compute_intersections(circle: Circle, line: tuple[np.array, np.array], ignor
     roots.append(intersect_point)
 
     # Artificially find the extra intersection
+    # doesn't work if it's a tangent solution, lol
+    # # TODO: implement 2021's solver
     artificial_intersect, valid = guess_extra_intersection(intersect_point, circle, circle_fc)
     if valid:
         roots.append(artificial_intersect)
-    is_behind = False
-    if ignore_behind:
-        vec_src_dst = line[1] - line[0]
-        vec_src_circ = circle.center - line[0]
-        is_behind = np.dot(vec_src_dst, vec_src_circ) < 0
 
-    return roots, solution_found, is_behind
+    return roots, solution_found
 
 
-def guess_extra_intersection(intersect: np.array, circle: Circle, circle_fc: Callable[[float, float], float]) -> tuple[np.array, bool]:
+def is_behind_check(src: np.array, dst: np.array, point: np.array) -> bool:
+    """
+    With a given source and destination, determine whether
+    a given point is considered "behind" the vector src->dst
+    This condition returns True when the angle difference of vectors
+    src->dst and src->point is superior or equal to 180 degrees
+    """
+    vec_src_dst = dst - src
+    vec_src_pt = point - src
+    return np.dot(vec_src_dst, vec_src_pt) < 0
+
+
+def guess_extra_intersection(intersect: np.array, circle: Circle, circle_fc: Callable[[float, float], float]) -> tuple[
+    np.array, bool]:
     """
     Finds a possible second intersection using a 180° symmetry
     If the obtained intersection is not in or on the circle, returns None
@@ -210,7 +223,8 @@ def triangle_normal_vec_theta(line: tuple[np.array, np.array], point: np.array) 
     return vec_normal_to_line_theta
 
 
-def space_away_from_circle(points: list[np.array], cir: Circle, circs_avoid: list[Circle], src: np.array) -> list[np.array]:
+def space_away_from_circle(points: list[np.array], cir: Circle, circs_avoid: list[Circle], src: np.array) -> list[
+    np.array]:
     """
     With a list of possible points to attain
     Move the given points a little further from the given circle's center, and by
@@ -273,4 +287,3 @@ def closest_to_dst(points: list[np.array], origin: np.array) -> np.array:
     wp_dists = list(map(dist_to_robot, points))
     index_min_dist = min(range(len(wp_dists)), key=wp_dists.__getitem__)
     return points[index_min_dist]
-
