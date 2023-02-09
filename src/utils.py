@@ -72,7 +72,7 @@ def robot_teams() -> list:
 
     :return list: possible robot team (colors)
     """
-    return ["yellow", "blue"]
+    return ["allies", "enemies"]
 
 
 def all_robots() -> list:
